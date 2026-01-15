@@ -52,7 +52,7 @@ async function fetchAllEvents(apiKey: string): Promise<LumaEvent[]> {
   const headers = { "x-luma-api-key": apiKey };
 
   while (hasMore) {
-    const url = cursor 
+    const url: string = cursor 
       ? `${baseUrl}/calendar/list-events?pagination_cursor=${encodeURIComponent(cursor)}`
       : `${baseUrl}/calendar/list-events`;
     
@@ -78,7 +78,7 @@ async function fetchAllGuests(apiKey: string, eventId: string): Promise<LumaGues
   const headers = { "x-luma-api-key": apiKey };
 
   while (hasMore) {
-    const url = cursor
+    const url: string = cursor
       ? `${baseUrl}/event/get-guests?event_api_id=${eventId}&pagination_cursor=${encodeURIComponent(cursor)}`
       : `${baseUrl}/event/get-guests?event_api_id=${eventId}`;
 
