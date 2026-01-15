@@ -99,21 +99,11 @@ export function Sidebar() {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3">
           {(() => {
-            // Try to get avatar URL - cast to any to handle various ZoPassport response shapes
-            const userAny = user as Record<string, unknown> | undefined;
-            const avatar = userAny?.avatar as Record<string, unknown> | string | undefined;
+            // Get avatar URL - use optional chaining on the typed user object
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const avatarUrl = (user as any)?.avatar?.image || (user as any)?.avatar?.url || (user as any)?.pfp_image || null;
             
-            let avatarUrl: string | null = null;
-            if (typeof avatar === 'string') {
-              avatarUrl = avatar;
-            } else if (avatar && typeof avatar === 'object') {
-              avatarUrl = (avatar.image as string) || (avatar.url as string) || null;
-            }
-            if (!avatarUrl && userAny) {
-              avatarUrl = (userAny.pfp_image as string) || (userAny.profile_picture as string) || (userAny.image as string) || null;
-            }
-            
-            if (avatarUrl) {
+            if (avatarUrl && typeof avatarUrl === 'string') {
               return (
                 <div className="relative w-9 h-9 rounded-full overflow-hidden">
                   <img
