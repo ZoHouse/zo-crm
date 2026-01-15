@@ -1,5 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NEXT_PUBLIC_ZO_CLIENT_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "LUMA_API_KEY_1",
+    "LUMA_API_KEY_2",
+    "LUMA_CALENDAR_NAME_1",
+    "LUMA_CALENDAR_NAME_2"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

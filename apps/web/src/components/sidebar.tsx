@@ -12,12 +12,14 @@ import {
   Sparkles,
   LogOut,
   CalendarDays,
+  Upload,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Import", href: "/import", icon: Upload },
   { name: "Luma Leads", href: "/luma", icon: CalendarDays },
   { name: "Activities", href: "/activities", icon: Activity },
   { name: "AI Insights", href: "/insights", icon: Sparkles },

@@ -127,25 +127,40 @@ async function fetchAllEvents(apiKey: string, baseUrl: string, headers: Record<s
   const allEvents: LumaEvent[] = [];
   let cursor: string | null = null;
   let hasMore = true;
+  let retries = 0;
+  const maxRetries = 3;
 
-  while (hasMore) {
-    const url = cursor 
-      ? `${baseUrl}/calendar/list-events?pagination_cursor=${encodeURIComponent(cursor)}`
-      : `${baseUrl}/calendar/list-events`;
-    
-    const res = await fetch(url, {
-      headers,
-      next: { revalidate: 300 },
-    });
+  while (hasMore && retries < maxRetries) {
+    try {
+      const url: string = cursor 
+        ? `${baseUrl}/calendar/list-events?pagination_cursor=${encodeURIComponent(cursor)}`
+        : `${baseUrl}/calendar/list-events`;
+      
+      const res = await fetch(url, {
+        headers,
+        next: { revalidate: 300 },
+      });
 
-    if (!res.ok) break;
+      if (!res.ok) {
+        console.error(`Events fetch failed with status ${res.status}`);
+        retries++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
 
-    const data = await res.json();
-    const events = data.entries?.map((e: { event: LumaEvent }) => e.event) || [];
-    allEvents.push(...events);
-    
-    hasMore = data.has_more === true;
-    cursor = data.next_cursor || null;
+      const data = await res.json();
+      const events = data.entries?.map((e: { event: LumaEvent }) => e.event) || [];
+      allEvents.push(...events);
+      
+      hasMore = data.has_more === true;
+      cursor = data.next_cursor || null;
+      retries = 0; // Reset on success
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      retries++;
+      if (retries >= maxRetries) break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   return allEvents;
@@ -155,28 +170,42 @@ async function fetchAllGuests(apiKey: string, baseUrl: string, headers: Record<s
   const allGuests: LumaGuest[] = [];
   let cursor: string | null = null;
   let hasMore = true;
+  let retries = 0;
+  const maxRetries = 2;
 
-  while (hasMore) {
-    const url = cursor
-      ? `${baseUrl}/event/get-guests?event_api_id=${eventId}&pagination_cursor=${encodeURIComponent(cursor)}`
-      : `${baseUrl}/event/get-guests?event_api_id=${eventId}`;
+  while (hasMore && retries < maxRetries) {
+    try {
+      const url: string = cursor
+        ? `${baseUrl}/event/get-guests?event_api_id=${eventId}&pagination_cursor=${encodeURIComponent(cursor)}`
+        : `${baseUrl}/event/get-guests?event_api_id=${eventId}`;
 
-    const res = await fetch(url, {
-      headers,
-      next: { revalidate: 300 },
-    });
+      const res = await fetch(url, {
+        headers,
+        next: { revalidate: 300 },
+      });
 
-    if (!res.ok) break;
+      if (!res.ok) {
+        retries++;
+        continue;
+      }
 
-    const data = await res.json();
-    const guests = data.entries?.map((g: { guest: LumaGuest }) => ({
-      ...g.guest,
-      event_api_id: eventId,
-    })) || [];
-    allGuests.push(...guests);
+      const data = await res.json();
+      const guests = data.entries?.map((g: { guest: LumaGuest }) => ({
+        ...g.guest,
+        event_api_id: eventId,
+      })) || [];
+      allGuests.push(...guests);
 
-    hasMore = data.has_more === true;
-    cursor = data.next_cursor || null;
+      hasMore = data.has_more === true;
+      cursor = data.next_cursor || null;
+      retries = 0; // Reset retries on success
+    } catch (error) {
+      console.error(`Error fetching guests for event ${eventId}:`, error);
+      retries++;
+      if (retries >= maxRetries) break;
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   return allGuests;
@@ -200,14 +229,26 @@ async function fetchLumaData(apiKey: string, calendarName: string): Promise<Cale
 
     // Fetch guests for ALL events (in parallel batches for performance)
     const allGuests: LumaGuest[] = [];
-    const batchSize = 10;
+    const batchSize = 5; // Reduced to avoid rate limiting
 
     for (let i = 0; i < events.length; i += batchSize) {
-      const batch = events.slice(i, i + batchSize);
-      const batchResults = await Promise.all(
-        batch.map(event => fetchAllGuests(apiKey, baseUrl, headers, event.api_id))
-      );
-      batchResults.forEach(guests => allGuests.push(...guests));
+      try {
+        const batch = events.slice(i, i + batchSize);
+        const batchResults = await Promise.allSettled(
+          batch.map(event => fetchAllGuests(apiKey, baseUrl, headers, event.api_id))
+        );
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            allGuests.push(...result.value);
+          }
+        });
+        // Small delay between batches to avoid rate limiting
+        if (i + batchSize < events.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`Error in batch ${i}:`, error);
+      }
     }
 
     console.log(`[${calendarName}] Fetched ${allGuests.length} total guests`);
