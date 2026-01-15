@@ -9,15 +9,23 @@ interface AuthGuardProps {
   children: React.ReactNode;
 }
 
+// Dev bypass - set to true to skip authentication in development
+const DEV_BYPASS = false;
+
 export function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useZoPassport();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!DEV_BYPASS && !isLoading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // In dev mode, skip auth check
+  if (DEV_BYPASS) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (

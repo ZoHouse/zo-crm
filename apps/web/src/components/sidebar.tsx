@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useZoPassport } from "zopassport/react";
 import {
@@ -12,12 +11,14 @@ import {
   Search,
   Sparkles,
   LogOut,
+  CalendarDays,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Luma Leads", href: "/luma", icon: CalendarDays },
   { name: "Activities", href: "/activities", icon: Activity },
   { name: "AI Insights", href: "/insights", icon: Sparkles },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -96,16 +97,23 @@ export function Sidebar() {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3">
           {(() => {
-            const avatarUrl = user?.avatar?.image || user?.pfp_image;
-            if (avatarUrl) {
+            // Try multiple avatar URL paths from ZoPassport user object
+            const avatarUrl = 
+              user?.avatar?.image || 
+              user?.avatar?.url ||
+              user?.avatar ||
+              user?.pfp_image ||
+              user?.profile_picture ||
+              user?.image ||
+              (typeof user?.avatar === 'string' ? user.avatar : null);
+            
+            if (avatarUrl && typeof avatarUrl === 'string') {
               return (
                 <div className="relative w-9 h-9 rounded-full overflow-hidden">
-                  <Image
+                  <img
                     src={avatarUrl}
                     alt={displayName}
-                    fill
-                    className="object-cover"
-                    unoptimized
+                    className="w-full h-full object-cover"
                   />
                 </div>
               );

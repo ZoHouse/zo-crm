@@ -6,15 +6,35 @@ export const contacts = sqliteTable("contacts", {
   lastName: text("last_name"),
   name: text("name"),
   email: text("email").notNull(),
+  phone: text("phone"),
+  company: text("company"),
+  jobTitle: text("job_title"),
   userApiId: text("user_api_id"),
   firstSeen: text("first_seen"),
+  lastContactedAt: text("last_contacted_at"),
   revenue: real("revenue").default(0),
   leadScore: integer("lead_score").default(0),
   tags: text("tags"), // JSON array stored as text
+  // Relationship management fields
+  relationshipStage: text("relationship_stage").default("lead"), // lead, contact, engaged, partner, vip, inactive
+  source: text("source"), // luma, csv_import, manual, referral, website
+  sourceDetail: text("source_detail"), // e.g., event name, referrer name
+  // Social & Communication
+  telegram: text("telegram"),
+  twitter: text("twitter"),
+  linkedin: text("linkedin"),
+  whatsapp: text("whatsapp"),
+  ethAddress: text("eth_address"),
+  solanaAddress: text("solana_address"),
+  // Membership & Events
   membershipName: text("membership_name"),
   membershipStatus: text("membership_status"),
   eventApprovedCount: integer("event_approved_count").default(0),
   eventCheckedInCount: integer("event_checked_in_count").default(0),
+  // Custom fields as JSON
+  customFields: text("custom_fields"), // JSON object for flexible data
+  // Notes (quick notes, detailed notes in activities)
+  notes: text("notes"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
