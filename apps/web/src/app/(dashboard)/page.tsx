@@ -1,5 +1,8 @@
 import { getDb, schema } from "@/lib/db";
 import { sql, count, avg, sum, desc } from "drizzle-orm";
+
+// Prevent prerendering - database not available at build time on Vercel
+export const dynamic = 'force-dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, DollarSign, TrendingUp, Activity, UserCheck, Clock } from "lucide-react";
