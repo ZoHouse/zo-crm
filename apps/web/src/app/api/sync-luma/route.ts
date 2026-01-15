@@ -213,7 +213,7 @@ export async function POST(request: Request) {
             first_name: firstName,
             last_name: lastName,
             phone: guest.phone_number,
-            company: getCompanyFromEmail(email),
+            company: getCompanyFromEmail(email) || undefined,
             telegram: extractSocialHandle(guest.registration_answers, ['telegram']),
             twitter: extractSocialHandle(guest.registration_answers, ['twitter', 'x handle']),
             linkedin: extractSocialHandle(guest.registration_answers, ['linkedin']),
