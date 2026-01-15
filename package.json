@@ -1,0 +1,21 @@
+{
+  "name": "smart-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:generate": "pnpm --filter @smart-crm/db generate",
+    "db:migrate": "pnpm --filter @smart-crm/db migrate",
+    "db:seed": "pnpm --filter @smart-crm/db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.3.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}
