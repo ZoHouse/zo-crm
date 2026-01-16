@@ -43,7 +43,7 @@ export function LumaSyncButton() {
   return (
     <div className="flex flex-col items-end gap-2">
       <Button
-        variant={status === "error" ? "destructive" : "outline"}
+        variant={status === "error" ? "danger" : "outline"}
         size="sm"
         onClick={handleSync}
         disabled={status === "loading"}
