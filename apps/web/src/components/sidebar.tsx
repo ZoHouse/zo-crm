@@ -6,13 +6,12 @@ import { useZoPassport } from "zopassport/react";
 import {
   LayoutDashboard,
   Users,
-  Activity,
   Settings,
   Search,
-  Sparkles,
   LogOut,
   Upload,
   X,
+  Sparkles,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 
@@ -20,8 +19,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Import", href: "/import", icon: Upload },
-  { name: "Activities", href: "/activities", icon: Activity },
-  { name: "AI Insights", href: "/insights", icon: Sparkles },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
