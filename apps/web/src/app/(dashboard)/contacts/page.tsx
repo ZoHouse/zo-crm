@@ -63,6 +63,7 @@ interface PageProps {
   searchParams: Promise<{
     search?: string;
     stage?: string;
+    source?: string;
     page?: string;
     sort?: string;
     order?: string;
@@ -87,6 +88,7 @@ interface Contact {
 async function getContacts(params: {
   search?: string;
   stage?: string;
+  source?: string;
   page?: number;
   sort?: string;
   order?: string;
@@ -111,6 +113,11 @@ async function getContacts(params: {
   // Apply stage filter
   if (params.stage && params.stage !== 'all') {
     query = query.eq('relationship_stage', params.stage);
+  }
+
+  // Apply source filter
+  if (params.source) {
+    query = query.eq('source', params.source);
   }
 
   // Apply sorting
@@ -142,6 +149,7 @@ export default async function ContactsPage({ searchParams }: PageProps) {
   const { contacts, total, page, totalPages } = await getContacts({
     search: params.search,
     stage: params.stage,
+    source: params.source,
     page: params.page ? parseInt(params.page) : 1,
     sort: params.sort,
     order: params.order,
