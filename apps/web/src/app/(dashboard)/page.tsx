@@ -129,11 +129,11 @@ export default async function DashboardPage() {
   const hasData = data.totalContacts > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Welcome to your Smart CRM</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-sm md:text-base text-gray-500">Welcome to your Smart CRM</p>
       </div>
 
       {/* Import Prompt - shown when no data */}
@@ -170,59 +170,67 @@ export default async function DashboardPage() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Contacts</p>
-                <p className="text-2xl font-bold text-gray-900">{data.totalContacts.toLocaleString()}</p>
+          <CardContent className="pt-4 md:pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Users className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <Users className="w-6 h-6 text-blue-600" />
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Total Contacts</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.totalContacts.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(data.totalRevenue)}</p>
+          <CardContent className="pt-4 md:pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-600" />
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Total Revenue</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{formatCurrency(data.totalRevenue)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Avg Lead Score</p>
-                <p className="text-2xl font-bold text-gray-900">{data.avgLeadScore}</p>
+          <CardContent className="pt-4 md:pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-yellow-600" />
+              <div>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Avg Lead Score</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.avgLeadScore}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="pt-4 md:pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
+                </div>
+              </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">VIP Contacts</p>
-                <p className="text-2xl font-bold text-gray-900">{data.stages.vip}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">VIP Contacts</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.stages.vip}</p>
                 <p className="text-xs text-gray-400 mt-1">{data.stages.partner} partners</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <UserCheck className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </CardContent>

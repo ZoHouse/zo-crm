@@ -394,12 +394,12 @@ export default async function LumaLeadsPage({ searchParams }: PageProps) {
   const hasApiKeys = apiKey1 || apiKey2;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Luma Leads</h1>
-          <p className="text-gray-500">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Luma Leads</h1>
+          <p className="text-sm md:text-base text-gray-500">
             Contact data from {calendarName1} & {calendarName2}
           </p>
         </div>
@@ -430,7 +430,7 @@ LUMA_CALENDAR_NAME_2=Calendar Name 2`}
       ) : (
         <>
           {/* CRM Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
@@ -597,8 +597,9 @@ LUMA_CALENDAR_NAME_2=Calendar Name 2`}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <table className="min-w-full divide-y divide-gray-200">
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
@@ -675,10 +676,11 @@ LUMA_CALENDAR_NAME_2=Calendar Name 2`}
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
               {filteredContacts.length > 50 && (
                 <div className="mt-4 text-center">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs sm:text-sm text-gray-500">
                     Showing 50 of {filteredContacts.length.toLocaleString()} contacts
                   </p>
                 </div>

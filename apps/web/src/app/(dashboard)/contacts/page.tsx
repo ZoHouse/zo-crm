@@ -168,48 +168,48 @@ export default async function ContactsPage({ searchParams }: PageProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
-          <p className="text-gray-500">{total.toLocaleString()} total contacts</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Contacts</h1>
+          <p className="text-sm md:text-base text-gray-500">{total.toLocaleString()} total contacts</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/import">
             <Button variant="outline" size="sm">
               <Upload className="w-4 h-4 mr-2" />
-              Import
+              <span className="hidden sm:inline">Import</span>
             </Button>
           </Link>
           <Button variant="outline" size="sm">
             <Download className="w-4 h-4 mr-2" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button size="sm">Add Contact</Button>
+          <Button size="sm" className="hidden sm:inline-flex">Add Contact</Button>
         </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col gap-4">
             {/* Search */}
-            <form className="flex-1">
+            <form className="w-full">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   name="search"
                   defaultValue={params.search}
-                  placeholder="Search by name, email, or company..."
+                  placeholder="Search contacts..."
                   className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </form>
 
             {/* Stage Filter */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap overflow-x-auto pb-2">
               <Link
                 href={buildUrl({ stage: undefined, page: "1" })}
                 className={`px-3 py-2 text-sm rounded-lg transition-colors ${
@@ -297,8 +297,9 @@ export default async function ContactsPage({ searchParams }: PageProps) {
       {/* Contacts Table */}
       {contacts.length > 0 && (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <table className="min-w-full divide-y divide-gray-200">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
@@ -410,15 +411,16 @@ export default async function ContactsPage({ searchParams }: PageProps) {
                     <td className="py-3 px-4">
                       <p className="text-sm text-gray-500">{formatDate(contact.created_at)}</p>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+            </div>
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200">
+            <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
               Showing {(page - 1) * 20 + 1} to {Math.min(page * 20, total)} of {total} contacts
             </p>
             <div className="flex gap-2">
