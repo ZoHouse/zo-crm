@@ -237,11 +237,11 @@ export default function ImportPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Import Contacts</h1>
-        <p className="text-gray-500">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Import Contacts</h1>
+        <p className="text-sm md:text-base text-gray-500">
           Import contacts from Luma events or upload a CSV file
         </p>
       </div>

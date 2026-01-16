@@ -11,7 +11,6 @@ import {
   Search,
   Sparkles,
   LogOut,
-  CalendarDays,
   Upload,
   X,
 } from "lucide-react";
@@ -21,7 +20,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Import", href: "/import", icon: Upload },
-  { name: "Luma Leads", href: "/luma", icon: CalendarDays },
   { name: "Activities", href: "/activities", icon: Activity },
   { name: "AI Insights", href: "/insights", icon: Sparkles },
   { name: "Settings", href: "/settings", icon: Settings },
