@@ -161,7 +161,11 @@ async function getContact(id: string) {
     .select('tags(id, name, color)')
     .eq('contact_id', id);
 
-  const tags = contactTags?.map((ct: { tags: TagRecord }) => ct.tags).filter(Boolean) || [];
+  const tags = contactTags?.map((ct: any) => {
+    // PostgREST sometimes returns joined data as an array
+    if (Array.isArray(ct.tags)) return ct.tags[0];
+    return ct.tags;
+  }).filter(Boolean) || [];
 
   return { 
     contact: contact as Contact, 
