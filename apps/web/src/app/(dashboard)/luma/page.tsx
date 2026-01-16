@@ -18,6 +18,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { LumaSyncButton } from "@/components/luma-sync-button";
 
 interface RegistrationAnswer {
   label: string;
@@ -402,10 +403,7 @@ export default async function LumaLeadsPage({ searchParams }: PageProps) {
             Contact data from {calendarName1} & {calendarName2}
           </p>
         </div>
-        <Button variant="outline" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Sync Contacts
-        </Button>
+        <LumaSyncButton />
       </div>
 
       {!hasApiKeys ? (
