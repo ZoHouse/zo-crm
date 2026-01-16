@@ -1,5 +1,7 @@
-import { getDb, schema } from "@/lib/db";
-import { eq, desc } from "drizzle-orm";
+// Prevent prerendering - database queries at runtime only
+export const dynamic = 'force-dynamic';
+
+import { createClient } from '@supabase/supabase-js';
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,55 +20,165 @@ import {
   MessageSquare,
   Phone,
   CheckCircle,
-  Sparkles,
-  MoreVertical,
+  Building,
+  Globe,
+  Wallet,
 } from "lucide-react";
-import {
-  formatDate,
-  formatCurrency,
-  getInitials,
-  getLeadScoreColor,
-  getMembershipStatusColor,
-} from "@/lib/utils";
+
+// Server-side Supabase client
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!url || !key) {
+    throw new Error('Missing Supabase credentials');
+  }
+  
+  return createClient(url, key);
+}
+
+function formatDate(date: string | null): string {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function getInitials(firstName?: string | null, lastName?: string | null, email?: string): string {
+  if (firstName && lastName) {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
+  if (firstName) {
+    return firstName.slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase();
+  }
+  return '??';
+}
+
+function getStageColor(stage: string | null): string {
+  switch (stage) {
+    case 'lead':
+      return 'bg-blue-100 text-blue-700';
+    case 'engaged':
+      return 'bg-green-100 text-green-700';
+    case 'partner':
+      return 'bg-purple-100 text-purple-700';
+    case 'vip':
+      return 'bg-yellow-100 text-yellow-700';
+    case 'inactive':
+      return 'bg-gray-100 text-gray-700';
+    default:
+      return 'bg-gray-100 text-gray-500';
+  }
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+interface Contact {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  phone: string | null;
+  company: string | null;
+  job_title: string | null;
+  relationship_stage: string | null;
+  lead_score: number | null;
+  last_contacted_at: string | null;
+  next_followup_at: string | null;
+  source: string | null;
+  source_detail: string | null;
+  telegram: string | null;
+  twitter: string | null;
+  linkedin: string | null;
+  whatsapp: string | null;
+  instagram: string | null;
+  eth_address: string | null;
+  solana_address: string | null;
+  luma_user_id: string | null;
+  events_attended: number | null;
+  total_spent: number | null;
+  notes: string | null;
+  custom_fields: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface ActivityRecord {
+  id: string;
+  type: string;
+  title: string | null;
+  content: string | null;
+  created_at: string | null;
+}
+
+interface TagRecord {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 async function getContact(id: string) {
-  const db = getDb();
+  const supabase = getSupabase();
 
-  const [contact] = await db
-    .select()
-    .from(schema.contacts)
-    .where(eq(schema.contacts.id, id))
-    .limit(1);
+  // Get contact
+  const { data: contact, error: contactError } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('id', id)
+    .single();
 
-  if (!contact) return null;
+  if (contactError || !contact) {
+    return null;
+  }
 
-  const activities = await db
-    .select()
-    .from(schema.activities)
-    .where(eq(schema.activities.contactId, id))
-    .orderBy(desc(schema.activities.createdAt))
+  // Get activities
+  const { data: activities } = await supabase
+    .from('activities')
+    .select('id, type, title, content, created_at')
+    .eq('contact_id', id)
+    .order('created_at', { ascending: false })
     .limit(20);
 
-  const insights = await db
-    .select()
-    .from(schema.aiInsights)
-    .where(eq(schema.aiInsights.contactId, id))
-    .orderBy(desc(schema.aiInsights.generatedAt))
-    .limit(5);
+  // Get tags
+  const { data: contactTags } = await supabase
+    .from('contact_tags')
+    .select('tags(id, name, color)')
+    .eq('contact_id', id);
 
-  return { contact, activities, insights };
+  const tags = contactTags?.map((ct: { tags: TagRecord }) => ct.tags).filter(Boolean) || [];
+
+  return { 
+    contact: contact as Contact, 
+    activities: (activities || []) as ActivityRecord[], 
+    tags: tags as TagRecord[] 
+  };
 }
 
 const activityIcons: Record<string, typeof Mail> = {
   email: Mail,
   note: MessageSquare,
   call: Phone,
-  event: CheckCircle,
-  system: Activity,
+  meeting: Calendar,
+  whatsapp: MessageSquare,
+  telegram: MessageSquare,
+  task: CheckCircle,
+  other: Activity,
 };
 
 export default async function ContactDetailPage({ params }: PageProps) {
@@ -77,8 +189,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const { contact, activities, insights } = data;
-  const tags = contact.tags ? JSON.parse(contact.tags) : [];
+  const { contact, activities, tags } = data;
 
   return (
     <div className="space-y-6">
@@ -92,19 +203,23 @@ export default async function ContactDetailPage({ params }: PageProps) {
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-xl font-bold text-white">
-            {getInitials(contact.name, contact.email)}
+            {getInitials(contact.first_name, contact.last_name, contact.email)}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {contact.name || contact.email}
+              {contact.first_name && contact.last_name 
+                ? `${contact.first_name} ${contact.last_name}`
+                : contact.first_name || contact.email}
             </h1>
             <p className="text-gray-500">{contact.email}</p>
-            {contact.membershipName && (
+            {contact.relationship_stage && (
               <div className="flex items-center gap-2 mt-1">
-                <Badge className={getMembershipStatusColor(contact.membershipStatus)}>
-                  {contact.membershipStatus || "No status"}
+                <Badge className={getStageColor(contact.relationship_stage)}>
+                  {contact.relationship_stage}
                 </Badge>
-                <span className="text-sm text-gray-500">{contact.membershipName}</span>
+                {contact.company && (
+                  <span className="text-sm text-gray-500">{contact.company}</span>
+                )}
               </div>
             )}
           </div>
@@ -116,11 +231,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
           </Button>
           <Button variant="outline" size="sm">
             <MessageSquare className="w-4 h-4 mr-2" />
-            Note
-          </Button>
-          <Button size="sm">
-            <Sparkles className="w-4 h-4 mr-2" />
-            AI Insights
+            Add Note
           </Button>
         </div>
       </div>
@@ -138,7 +249,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Lead Score</p>
-                    <p className="text-lg font-bold text-gray-900">{contact.leadScore}</p>
+                    <p className="text-lg font-bold text-gray-900">{contact.lead_score ?? 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -151,9 +262,9 @@ export default async function ContactDetailPage({ params }: PageProps) {
                     <DollarSign className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Revenue</p>
+                    <p className="text-xs text-gray-500">Total Spent</p>
                     <p className="text-lg font-bold text-gray-900">
-                      {formatCurrency(contact.revenue || 0)}
+                      {formatCurrency(contact.total_spent || 0)}
                     </p>
                   </div>
                 </div>
@@ -169,7 +280,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
                   <div>
                     <p className="text-xs text-gray-500">Events</p>
                     <p className="text-lg font-bold text-gray-900">
-                      {contact.eventCheckedInCount || 0}
+                      {contact.events_attended || 0}
                     </p>
                   </div>
                 </div>
@@ -183,15 +294,27 @@ export default async function ContactDetailPage({ params }: PageProps) {
                     <Calendar className="w-5 h-5 text-yellow-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">First Seen</p>
+                    <p className="text-xs text-gray-500">Added</p>
                     <p className="text-sm font-bold text-gray-900">
-                      {formatDate(contact.firstSeen)}
+                      {formatDate(contact.created_at)}
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Notes */}
+          {contact.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">{contact.notes}</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activity Timeline */}
           <Card>
@@ -221,10 +344,10 @@ export default async function ContactDetailPage({ params }: PageProps) {
                         <div className="flex-1 pb-4">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium text-gray-900 capitalize">
-                              {activity.type}
+                              {activity.title || activity.type}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {formatDate(activity.createdAt)}
+                              {formatDate(activity.created_at)}
                             </p>
                           </div>
                           {activity.content && (
@@ -263,7 +386,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-xs text-gray-500">Full Name</p>
                   <p className="text-sm text-gray-900">
-                    {contact.firstName} {contact.lastName}
+                    {contact.first_name} {contact.last_name}
                   </p>
                 </div>
               </div>
@@ -276,14 +399,45 @@ export default async function ContactDetailPage({ params }: PageProps) {
                 </div>
               </div>
 
-              {contact.userApiId && (
+              {contact.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <div>
+                    <p className="text-xs text-gray-500">Phone</p>
+                    <p className="text-sm text-gray-900">{contact.phone}</p>
+                  </div>
+                </div>
+              )}
+
+              {contact.company && (
+                <div className="flex items-center gap-3">
+                  <Building className="w-4 h-4 text-gray-400" />
+                  <div>
+                    <p className="text-xs text-gray-500">Company</p>
+                    <p className="text-sm text-gray-900">{contact.company}</p>
+                  </div>
+                </div>
+              )}
+
+              {contact.job_title && (
                 <div className="flex items-center gap-3">
                   <Tag className="w-4 h-4 text-gray-400" />
                   <div>
-                    <p className="text-xs text-gray-500">User ID</p>
-                    <p className="text-sm text-gray-900 font-mono text-xs">
-                      {contact.userApiId}
-                    </p>
+                    <p className="text-xs text-gray-500">Job Title</p>
+                    <p className="text-sm text-gray-900">{contact.job_title}</p>
+                  </div>
+                </div>
+              )}
+
+              {contact.source && (
+                <div className="flex items-center gap-3">
+                  <Globe className="w-4 h-4 text-gray-400" />
+                  <div>
+                    <p className="text-xs text-gray-500">Source</p>
+                    <p className="text-sm text-gray-900 capitalize">{contact.source}</p>
+                    {contact.source_detail && (
+                      <p className="text-xs text-gray-500">{contact.source_detail}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -292,11 +446,49 @@ export default async function ContactDetailPage({ params }: PageProps) {
                 <Clock className="w-4 h-4 text-gray-400" />
                 <div>
                   <p className="text-xs text-gray-500">Added to CRM</p>
-                  <p className="text-sm text-gray-900">{formatDate(contact.createdAt)}</p>
+                  <p className="text-sm text-gray-900">{formatDate(contact.created_at)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Social & Web3 */}
+          {(contact.telegram || contact.twitter || contact.linkedin || contact.eth_address) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Social & Web3</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {contact.telegram && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Telegram</span>
+                    <span className="text-sm text-gray-900">@{contact.telegram}</span>
+                  </div>
+                )}
+                {contact.twitter && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Twitter</span>
+                    <span className="text-sm text-gray-900">@{contact.twitter}</span>
+                  </div>
+                )}
+                {contact.linkedin && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">LinkedIn</span>
+                    <a href={contact.linkedin} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">View</a>
+                  </div>
+                )}
+                {contact.eth_address && (
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-gray-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500">ETH Address</p>
+                      <p className="text-sm text-gray-900 font-mono truncate">{contact.eth_address}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Tags */}
           {tags.length > 0 && (
@@ -306,9 +498,13 @@ export default async function ContactDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {tags.map((tag: string) => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
+                  {tags.map((tag) => (
+                    <Badge 
+                      key={tag.id} 
+                      variant="secondary"
+                      style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined, color: tag.color || undefined }}
+                    >
+                      {tag.name}
                     </Badge>
                   ))}
                 </div>
@@ -316,48 +512,17 @@ export default async function ContactDetailPage({ params }: PageProps) {
             </Card>
           )}
 
-          {/* AI Insights */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
-                  AI Insights
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {insights.length > 0 ? (
-                <div className="space-y-3">
-                  {insights.map((insight) => (
-                    <div
-                      key={insight.id}
-                      className="p-3 rounded-lg bg-blue-50 border border-blue-100"
-                    >
-                      <p className="text-sm text-blue-900">{insight.content}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <Badge variant="default" className="text-xs">
-                          {insight.type.replace("_", " ")}
-                        </Badge>
-                        {insight.confidenceScore && (
-                          <span className="text-xs text-blue-600">
-                            {Math.round(insight.confidenceScore * 100)}% confidence
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">No AI insights yet</p>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    Generate Insights
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Follow-up */}
+          {contact.next_followup_at && (
+            <Card className="border-yellow-200 bg-yellow-50/50">
+              <CardHeader>
+                <CardTitle className="text-yellow-800">Follow-up Due</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-yellow-700">{formatDate(contact.next_followup_at)}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
