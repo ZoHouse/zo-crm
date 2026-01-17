@@ -148,6 +148,7 @@ export default function SalesAgentPage() {
           contactCount={contactCount}
           error={error}
           onEndCall={endCall}
+          isInRoom={true}
         />
       </LiveKitRoom>
     );
@@ -178,6 +179,7 @@ function AgentInterface({
   error,
   onStartCall,
   onEndCall,
+  isInRoom = false,
 }: {
   status: AgentStatus;
   setStatus: (status: AgentStatus) => void;
@@ -187,6 +189,7 @@ function AgentInterface({
   error: string | null;
   onStartCall?: () => void;
   onEndCall: () => void;
+  isInRoom?: boolean;
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -293,15 +296,19 @@ function AgentInterface({
                       Start Call
                     </Button>
                   </div>
-                ) : (
+                ) : isInRoom ? (
                   <RoomControls onEndCall={onEndCall} />
+                ) : (
+                  <div className="flex justify-center">
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  </div>
                 )}
               </div>
             </div>
           </Card>
 
-          {/* Audio Tracks */}
-          {status !== "idle" && status !== "error" && <AudioRenderer />}
+          {/* Audio Tracks - Only render when inside LiveKit room */}
+          {isInRoom && <AudioRenderer />}
 
           {/* Conversation Transcript */}
           <Card>
