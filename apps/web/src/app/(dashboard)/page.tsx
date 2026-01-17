@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, DollarSign, TrendingUp, UserCheck, Upload } from "lucide-react";
+import { Users, TrendingUp, UserCheck, Upload, Calendar } from "lucide-react";
 import Link from "next/link";
 
 // Server-side Supabase client
@@ -19,50 +18,6 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatDate(date: string | null): string {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function getInitials(firstName?: string | null, lastName?: string | null, email?: string): string {
-  if (firstName && lastName) {
-    return `${firstName[0]}${lastName[0]}`.toUpperCase();
-  }
-  if (firstName) {
-    return firstName.slice(0, 2).toUpperCase();
-  }
-  if (email) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return '??';
-}
-
-interface Contact {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-  company: string | null;
-  relationship_stage: string | null;
-  lead_score: number | null;
-  total_spent: number | null;
-  events_attended: number | null;
-  source: string | null;
-  created_at: string | null;
-}
 
 async function getDashboardData() {
   const supabase = getSupabase();
@@ -74,9 +29,8 @@ async function getDashboardData() {
     engagedResult,
     partnerResult,
     vipResult,
-    revenueResult,
-    recentContacts,
-    topContacts,
+    eventsResult,
+    withCompanyResult,
   ] = await Promise.all([
     // Total contacts
     supabase.from('contacts').select('*', { count: 'exact', head: true }),
@@ -85,42 +39,25 @@ async function getDashboardData() {
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'engaged'),
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'partner'),
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'vip'),
-    // Total revenue
-    supabase.from('contacts').select('total_spent'),
-    // Recent contacts
-    supabase
-      .from('contacts')
-      .select('id, first_name, last_name, email, company, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    // Top contacts by lead score
-    supabase
-      .from('contacts')
-      .select('id, first_name, last_name, email, company, lead_score, relationship_stage')
-      .order('lead_score', { ascending: false, nullsFirst: false })
-      .limit(5),
+    // Total events attended (sum)
+    supabase.from('contacts').select('events_attended'),
+    // Contacts with company
+    supabase.from('contacts').select('*', { count: 'exact', head: true }).not('company', 'is', null),
   ]);
 
-  // Calculate total revenue
-  const totalRevenue = revenueResult.data?.reduce((sum, c) => sum + (Number(c.total_spent) || 0), 0) || 0;
-  
-  // Calculate avg lead score
-  const avgLeadScore = topContacts.data?.length 
-    ? Math.round(topContacts.data.reduce((sum, c) => sum + (c.lead_score || 0), 0) / topContacts.data.length)
-    : 0;
+  // Calculate total events attended
+  const totalEvents = eventsResult.data?.reduce((sum, c) => sum + (Number(c.events_attended) || 0), 0) || 0;
 
   return {
     totalContacts: totalResult.count || 0,
-    totalRevenue,
-    avgLeadScore,
+    totalEvents,
+    withCompany: withCompanyResult.count || 0,
     stages: {
       lead: leadResult.count || 0,
       engaged: engagedResult.count || 0,
       partner: partnerResult.count || 0,
       vip: vipResult.count || 0,
     },
-    recentContacts: (recentContacts.data || []) as Contact[],
-    topContacts: (topContacts.data || []) as Contact[],
   };
 }
 
@@ -150,20 +87,12 @@ export default async function DashboardPage() {
               <p className="text-gray-500 mb-6 max-w-md">
                 Get started by importing your contacts from Luma events or uploading a CSV file.
               </p>
-              <div className="flex gap-4">
-                <Link
-                  href="/import"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Import Contacts
-                </Link>
-                <Link
-                  href="/luma"
-                  className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  View Luma Leads
-                </Link>
-              </div>
+              <Link
+                href="/import"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Import Contacts
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -174,10 +103,8 @@ export default async function DashboardPage() {
         <Card>
           <CardContent className="pt-4 md:pt-6">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Users className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-                </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Users className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
               </div>
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-500">Total Contacts</p>
@@ -190,14 +117,12 @@ export default async function DashboardPage() {
         <Card>
           <CardContent className="pt-4 md:pt-6">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
-                </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-xs md:text-sm font-medium text-gray-500">Total Revenue</p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900">{formatCurrency(data.totalRevenue)}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">Event Registrations</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.totalEvents.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -206,14 +131,13 @@ export default async function DashboardPage() {
         <Card>
           <CardContent className="pt-4 md:pt-6">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
-                </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-yellow-600" />
               </div>
               <div>
-                <p className="text-xs md:text-sm font-medium text-gray-500">Avg Lead Score</p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.avgLeadScore}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">With Company</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.withCompany.toLocaleString()}</p>
+                <p className="text-xs text-gray-400 mt-1">{Math.round((data.withCompany / data.totalContacts) * 100)}% of contacts</p>
               </div>
             </div>
           </CardContent>
@@ -222,10 +146,8 @@ export default async function DashboardPage() {
         <Card>
           <CardContent className="pt-4 md:pt-6">
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                  <UserCheck className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
-                </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <UserCheck className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-500">VIP Contacts</p>
@@ -236,106 +158,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Content Grid */}
-      {hasData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Contacts */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Recent Contacts</CardTitle>
-                <Link href="/contacts" className="text-sm text-blue-600 hover:underline">
-                  View all
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {data.recentContacts.map((contact) => (
-                  <Link
-                    key={contact.id}
-                    href={`/contacts/${contact.id}`}
-                    className="flex items-center gap-4 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                      {getInitials(contact.first_name, contact.last_name, contact.email)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {contact.first_name && contact.last_name 
-                          ? `${contact.first_name} ${contact.last_name}`
-                          : contact.first_name || contact.email}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{contact.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">{formatDate(contact.created_at)}</p>
-                    </div>
-                  </Link>
-                ))}
-                {data.recentContacts.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">No contacts yet</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Engaged Contacts */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Top Engaged</CardTitle>
-                <Badge variant="secondary">By Lead Score</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {data.topContacts.map((contact, idx) => (
-                  <Link
-                    key={contact.id}
-                    href={`/contacts/${contact.id}`}
-                    className="flex items-center gap-4 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
-                      {idx + 1}
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                      {getInitials(contact.first_name, contact.last_name, contact.email)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {contact.first_name && contact.last_name 
-                          ? `${contact.first_name} ${contact.last_name}`
-                          : contact.first_name || contact.email}
-                      </p>
-                      {contact.company && (
-                        <p className="text-xs text-gray-500 truncate">{contact.company}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <Badge
-                        variant={
-                          (contact.lead_score ?? 0) >= 70
-                            ? "success"
-                            : (contact.lead_score ?? 0) >= 40
-                            ? "warning"
-                            : "secondary"
-                        }
-                      >
-                        {contact.lead_score ?? 0}
-                      </Badge>
-                    </div>
-                  </Link>
-                ))}
-                {data.topContacts.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">No contacts yet</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Relationship Stages Breakdown */}
       <Card>
