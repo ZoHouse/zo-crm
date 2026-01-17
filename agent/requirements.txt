@@ -1,8 +1,5 @@
-# LiveKit Agents SDK
-livekit-agents>=0.12.0
-livekit-plugins-openai>=0.10.0
-livekit-plugins-cartesia>=0.4.0
-livekit-plugins-silero>=0.7.0
+# LiveKit Agents SDK (matches Cerebras cookbook)
+livekit-agents[cartesia,silero,openai]
 
 # Supabase for CRM data
 supabase>=2.0.0

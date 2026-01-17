@@ -1,14 +1,12 @@
 """
 Smart CRM Sales Agent - Voice AI Assistant
-Powered by Cerebras (LLaMA 3.3 70B), Cartesia (TTS/STT), and LiveKit
+Based on: https://inference-docs.cerebras.ai/cookbook/agents/sales-agent-cerebras-livekit
 
-This agent connects to LiveKit rooms and provides voice-based CRM assistance.
-It can look up contacts, provide information, and help with sales queries.
+Powered by Cerebras (LLaMA 3.3 70B), Cartesia (TTS/STT), and LiveKit
 """
 
 import os
 import logging
-import asyncio
 from typing import Optional
 from datetime import datetime
 
@@ -22,15 +20,13 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    print("⚠️ Supabase not installed. CRM lookups will be limited.")
+    print("⚠️ Supabase not installed. Install with: pip install supabase")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("crm-agent")
 
 # Environment variables
-CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY")
-CARTESIA_API_KEY = os.environ.get("CARTESIA_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("NEXT_PUBLIC_SUPABASE_URL"))
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_KEY"))
 
@@ -67,11 +63,13 @@ def load_crm_context() -> str:
         
         context = f"""
 CRM DATABASE CONTEXT:
-- Total Contacts: {total_contacts:,}
-- Top Companies: {', '.join(companies[:10])}
-- Relationship Stages: {', '.join([f'{k}: {v}' for k, v in stages.items()])}
+Total Contacts: {total_contacts:,}
+Top Companies: {', '.join(companies[:10])}
+Relationship Stages: {', '.join([f'{k}: {v}' for k, v in stages.items()])}
 
-You have access to search for specific contacts by name, email, or company using the search_contact function.
+You can search for contacts using the search_contact function.
+You can get contact counts using the get_contact_count function.
+You can look up company contacts using the get_company_contacts function.
 """
         logger.info(f"📊 Loaded CRM context: {total_contacts} contacts")
         return context
@@ -81,143 +79,94 @@ You have access to search for specific contacts by name, email, or company using
         return "CRM data temporarily unavailable."
 
 
+# Load context once at startup
+CRM_CONTEXT = load_crm_context()
+
+
 class SalesAgent(Agent):
-    """AI Sales Agent with CRM integration."""
+    """Main Sales Agent - handles general inquiries and CRM lookups."""
     
     def __init__(self):
-        # Load CRM context
-        crm_context = load_crm_context()
-        
-        # Initialize LLM (Cerebras with LLaMA 3.3 70B)
+        # Initialize components (Cerebras cookbook pattern)
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
-        
-        # Initialize Speech-to-Text and Text-to-Speech (Cartesia)
         stt = cartesia.STT()
-        tts = cartesia.TTS(
-            voice="79a125e8-cd45-4c13-8a67-188112f4dd22",  # Professional female voice
-        )
-        
-        # Voice Activity Detection
+        tts = cartesia.TTS()
         vad = silero.VAD.load()
         
-        # System instructions
         instructions = f"""
-You are Aria, a professional AI sales assistant for Smart CRM. You communicate by voice, 
-so all your responses will be spoken aloud. Keep responses natural and conversational.
+        You are Aria, a sales agent for Smart CRM communicating by voice. All text that you return
+        will be spoken aloud, so don't use things like bullets, slashes, or any
+        other non-pronouncable punctuation.
 
-PERSONALITY:
-- Friendly and professional
-- Helpful and knowledgeable about the CRM
-- Concise - avoid long monologues
-- Ask clarifying questions when needed
+        {CRM_CONTEXT}
 
-{crm_context}
+        CRITICAL RULES:
+        - ONLY use information from searches or the context above
+        - If asked about a specific contact, use the search_contact function
+        - DO NOT make up contact details, emails, or phone numbers
+        - Keep responses brief and conversational
+        - Be helpful and professional
 
-CAPABILITIES:
-1. Look up contacts by name, email, or company
-2. Provide information about leads and relationships
-3. Help with sales strategy and follow-ups
-4. Answer questions about the CRM data
-
-IMPORTANT RULES:
-- Never make up contact information - only use data from searches
-- If you don't find a contact, say so honestly
-- Keep responses brief and spoken-friendly (no bullets, lists, or special characters)
-- Pronounce numbers and dates naturally
-
-When the user asks about a specific contact or company, use the search_contact function to look them up.
-"""
+        You can transfer to specialists:
+        - Use switch_to_technical for technical product questions
+        - Use switch_to_pricing for pricing and budget discussions
+        """
         
         super().__init__(
             instructions=instructions,
-            stt=stt,
-            llm=llm,
-            tts=tts,
-            vad=vad,
+            stt=stt, llm=llm, tts=tts, vad=vad
         )
-        
-        logger.info("🤖 Sales Agent initialized")
     
     async def on_enter(self):
-        """Called when agent enters the room."""
-        logger.info("👋 Agent entering room")
-        await self.session.generate_reply(
-            user_input="Greet the user briefly. Introduce yourself as Aria and ask how you can help them today."
+        """Greet user when they join."""
+        print("Current Agent: 🏷️ Sales Agent (Aria) 🏷️")
+        self.session.generate_reply(
+            user_input="Give a short, 1 sentence greeting. Introduce yourself as Aria and offer to help."
         )
     
     @function_tool
-    async def search_contact(
-        self, 
-        query: str, 
-        search_type: str = "name"
-    ) -> str:
+    async def search_contact(self, query: str, search_type: str = "name") -> str:
         """
         Search for a contact in the CRM.
         
         Args:
             query: The search term (name, email, or company name)
             search_type: Type of search - "name", "email", or "company"
-        
-        Returns:
-            Information about matching contacts
         """
         if not supabase:
-            return "CRM database is not connected. Unable to search contacts."
+            return "CRM database is not connected."
         
         try:
-            # Build query based on search type
             if search_type == "email":
                 result = supabase.table("contacts").select(
-                    "name, email, company, phone, relationship_stage, notes"
+                    "name, email, company, phone, relationship_stage"
                 ).ilike("email", f"%{query}%").limit(5).execute()
             elif search_type == "company":
                 result = supabase.table("contacts").select(
-                    "name, email, company, phone, relationship_stage, notes"
+                    "name, email, company, phone, relationship_stage"
                 ).ilike("company", f"%{query}%").limit(10).execute()
-            else:  # name search
+            else:
                 result = supabase.table("contacts").select(
-                    "name, email, company, phone, relationship_stage, notes"
+                    "name, email, company, phone, relationship_stage"
                 ).ilike("name", f"%{query}%").limit(5).execute()
             
             contacts = result.data
-            
             if not contacts:
-                return f"No contacts found matching '{query}' in {search_type} field."
+                return f"No contacts found matching '{query}'."
             
-            # Format results for voice
             if len(contacts) == 1:
                 c = contacts[0]
-                response = f"Found {c['name']}"
-                if c.get('company'):
-                    response += f" from {c['company']}"
-                if c.get('email'):
-                    response += f". Email: {c['email']}"
-                if c.get('phone'):
-                    response += f". Phone: {c['phone']}"
-                if c.get('relationship_stage'):
-                    response += f". Status: {c['relationship_stage']}"
-                if c.get('notes'):
-                    response += f". Notes: {c['notes'][:100]}"
-                return response
+                return f"Found {c['name']} from {c.get('company', 'unknown company')}. Email: {c.get('email', 'not available')}. Status: {c.get('relationship_stage', 'lead')}."
             else:
                 names = [c['name'] for c in contacts[:5]]
-                return f"Found {len(contacts)} contacts: {', '.join(names)}. Would you like details on any of them?"
+                return f"Found {len(contacts)} contacts: {', '.join(names)}."
                 
         except Exception as e:
-            logger.error(f"Search error: {e}")
-            return f"Error searching contacts: {str(e)}"
+            return f"Search error: {str(e)}"
     
     @function_tool
     async def get_contact_count(self, stage: str = None) -> str:
-        """
-        Get the count of contacts, optionally filtered by relationship stage.
-        
-        Args:
-            stage: Optional filter - "lead", "engaged", "partner", or "vip"
-        
-        Returns:
-            Count of contacts
-        """
+        """Get count of contacts, optionally filtered by stage."""
         if not supabase:
             return "CRM database is not connected."
         
@@ -226,27 +175,17 @@ When the user asks about a specific contact or company, use the search_contact f
             if stage:
                 query = query.eq("relationship_stage", stage)
             result = query.execute()
-            
             count = result.count or 0
-            if stage:
-                return f"There are {count:,} contacts with {stage} status."
-            return f"There are {count:,} total contacts in the CRM."
             
+            if stage:
+                return f"There are {count:,} {stage} contacts."
+            return f"There are {count:,} total contacts in the CRM."
         except Exception as e:
-            logger.error(f"Count error: {e}")
-            return "Error counting contacts."
+            return f"Error: {str(e)}"
     
     @function_tool
     async def get_company_contacts(self, company: str) -> str:
-        """
-        Get all contacts from a specific company.
-        
-        Args:
-            company: Company name to search for
-        
-        Returns:
-            List of contacts at that company
-        """
+        """Get all contacts from a specific company."""
         if not supabase:
             return "CRM database is not connected."
         
@@ -255,33 +194,162 @@ When the user asks about a specific contact or company, use the search_contact f
                 "name, email, relationship_stage"
             ).ilike("company", f"%{company}%").limit(20).execute()
             
-            contacts = result.data
-            
-            if not contacts:
+            if not result.data:
                 return f"No contacts found at {company}."
             
-            names = [f"{c['name']} ({c.get('relationship_stage', 'lead')})" for c in contacts]
-            return f"Found {len(contacts)} contacts at {company}: {', '.join(names[:10])}"
-            
+            names = [c['name'] for c in result.data]
+            return f"Found {len(result.data)} contacts at {company}: {', '.join(names[:10])}"
         except Exception as e:
-            logger.error(f"Company search error: {e}")
-            return f"Error searching company: {str(e)}"
+            return f"Error: {str(e)}"
+    
+    @function_tool
+    async def switch_to_technical(self):
+        """Switch to technical specialist for product questions."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to technical support"
+        )
+        return TechnicalAgent()
+    
+    @function_tool
+    async def switch_to_pricing(self):
+        """Switch to pricing specialist for budget discussions."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to a pricing specialist"
+        )
+        return PricingAgent()
+
+
+class TechnicalAgent(Agent):
+    """Technical Specialist - handles product and technical questions."""
+    
+    def __init__(self):
+        llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
+        stt = cartesia.STT()
+        tts = cartesia.TTS(voice="bf0a246a-8642-498a-9950-80c35e9276b5")  # Different voice
+        vad = silero.VAD.load()
+        
+        instructions = f"""
+        You are a technical specialist communicating by voice. All text that you return
+        will be spoken aloud, so don't use things like bullets, slashes, or any
+        other non-pronouncable punctuation.
+
+        You specialize in technical details about the CRM system:
+        - Contact management and data organization
+        - Integration capabilities (Luma events, CSV imports)
+        - API features and customization options
+        - Data security and privacy
+
+        {CRM_CONTEXT}
+
+        CRITICAL RULES:
+        - Focus on technical accuracy
+        - Explain concepts clearly for non-technical users
+        - Keep responses conversational
+
+        You can transfer:
+        - Use switch_to_sales to return to sales
+        - Use switch_to_pricing for pricing questions
+        """
+        
+        super().__init__(
+            instructions=instructions,
+            stt=stt, llm=llm, tts=tts, vad=vad
+        )
+    
+    async def on_enter(self):
+        print("Current Agent: 💻 Technical Specialist 💻")
+        await self.session.say(
+            "Hi, I'm the technical specialist. I can help you with detailed technical questions about the CRM."
+        )
+    
+    @function_tool
+    async def switch_to_sales(self):
+        """Switch back to sales representative."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to the sales team"
+        )
+        return SalesAgent()
+    
+    @function_tool
+    async def switch_to_pricing(self):
+        """Switch to pricing specialist."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to pricing"
+        )
+        return PricingAgent()
+
+
+class PricingAgent(Agent):
+    """Pricing Specialist - handles pricing and budget discussions."""
+    
+    def __init__(self):
+        llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
+        stt = cartesia.STT()
+        tts = cartesia.TTS(voice="4df027cb-2920-4a1f-8c34-f21529d5c3fe")  # Different voice
+        vad = silero.VAD.load()
+        
+        instructions = f"""
+        You are a pricing specialist communicating by voice. All text that you return
+        will be spoken aloud, so don't use things like bullets, slashes, or any
+        other non-pronouncable punctuation.
+
+        You specialize in pricing, budgets, and value discussions:
+        - Smart CRM is currently free for early adopters
+        - Future plans may include premium tiers
+        - Focus on ROI and value proposition
+
+        {CRM_CONTEXT}
+
+        CRITICAL RULES:
+        - Be transparent about pricing
+        - Focus on value proposition
+        - Help customers understand options
+
+        You can transfer:
+        - Use switch_to_sales to return to sales
+        - Use switch_to_technical for technical questions
+        """
+        
+        super().__init__(
+            instructions=instructions,
+            stt=stt, llm=llm, tts=tts, vad=vad
+        )
+    
+    async def on_enter(self):
+        print("Current Agent: 💰 Pricing Specialist 💰")
+        await self.session.say(
+            "Hello, I'm the pricing specialist. I can help you understand our pricing and find the best value."
+        )
+    
+    @function_tool
+    async def switch_to_sales(self):
+        """Switch back to sales representative."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to sales"
+        )
+        return SalesAgent()
+    
+    @function_tool
+    async def switch_to_technical(self):
+        """Switch to technical specialist."""
+        await self.session.generate_reply(
+            user_input="Confirm you are transferring to technical support"
+        )
+        return TechnicalAgent()
 
 
 async def entrypoint(ctx: JobContext):
-    """Main entry point for the agent."""
+    """Main entry point - starts with Sales Agent."""
     logger.info(f"🚀 Agent job started: {ctx.job.id}")
     
-    # Connect to the room
     await ctx.connect()
     logger.info(f"📡 Connected to room: {ctx.room.name}")
     
-    # Create and start the agent
-    agent = SalesAgent()
     session = AgentSession()
     
+    # Start with sales agent (can transfer to others)
     await session.start(
-        agent=agent,
+        agent=SalesAgent(),
         room=ctx.room,
     )
     
@@ -289,34 +357,24 @@ async def entrypoint(ctx: JobContext):
 
 
 if __name__ == "__main__":
-    # Validate required environment variables
-    missing = []
-    if not CEREBRAS_API_KEY:
-        missing.append("CEREBRAS_API_KEY")
-    if not CARTESIA_API_KEY:
-        missing.append("CARTESIA_API_KEY")
+    # Validate environment
+    required = ["CEREBRAS_API_KEY", "CARTESIA_API_KEY"]
+    missing = [k for k in required if not os.environ.get(k)]
     
     if missing:
-        print(f"❌ Missing required environment variables: {', '.join(missing)}")
-        print("\nRequired variables:")
-        print("  LIVEKIT_URL - Your LiveKit server URL")
-        print("  LIVEKIT_API_KEY - LiveKit API key")
-        print("  LIVEKIT_API_SECRET - LiveKit API secret")
-        print("  CEREBRAS_API_KEY - Cerebras API key")
-        print("  CARTESIA_API_KEY - Cartesia API key")
-        print("\nOptional (for CRM lookups):")
-        print("  SUPABASE_URL - Supabase project URL")
-        print("  SUPABASE_SERVICE_ROLE_KEY - Supabase service role key")
+        print(f"❌ Missing: {', '.join(missing)}")
+        print("\nRequired:")
+        print("  LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
+        print("  CEREBRAS_API_KEY, CARTESIA_API_KEY")
+        print("\nOptional:")
+        print("  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
         exit(1)
     
-    print("🎤 Starting Smart CRM Sales Agent...")
+    print("🎤 Starting Smart CRM Multi-Agent System...")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("\nAgents available:")
+    print("  🏷️ Sales Agent (Aria) - main contact")
+    print("  💻 Technical Specialist")
+    print("  💰 Pricing Specialist")
     
-    # Run the agent worker
-    agents.cli.run_app(
-        WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            # Auto-subscribe to rooms matching this pattern
-            # agent_name="smart-crm-agent",
-        )
-    )
+    agents.cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
