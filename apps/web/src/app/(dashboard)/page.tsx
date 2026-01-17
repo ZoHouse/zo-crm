@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { createClient } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, TrendingUp, UserCheck, Upload, Calendar } from "lucide-react";
+import { Users, TrendingUp, UserCheck, Upload } from "lucide-react";
 import Link from "next/link";
 
 // Server-side Supabase client
@@ -29,7 +29,6 @@ async function getDashboardData() {
     engagedResult,
     partnerResult,
     vipResult,
-    eventsResult,
     withCompanyResult,
   ] = await Promise.all([
     // Total contacts
@@ -39,18 +38,12 @@ async function getDashboardData() {
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'engaged'),
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'partner'),
     supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('relationship_stage', 'vip'),
-    // Total events attended (sum)
-    supabase.from('contacts').select('events_attended'),
     // Contacts with company
     supabase.from('contacts').select('*', { count: 'exact', head: true }).not('company', 'is', null),
   ]);
 
-  // Calculate total events attended
-  const totalEvents = eventsResult.data?.reduce((sum, c) => sum + (Number(c.events_attended) || 0), 0) || 0;
-
   return {
     totalContacts: totalResult.count || 0,
-    totalEvents,
     withCompany: withCompanyResult.count || 0,
     stages: {
       lead: leadResult.count || 0,
@@ -99,7 +92,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-3 gap-3 md:gap-4">
         <Card>
           <CardContent className="pt-4 md:pt-6">
             <div className="flex flex-col gap-2">
@@ -109,20 +102,6 @@ export default async function DashboardPage() {
               <div>
                 <p className="text-xs md:text-sm font-medium text-gray-500">Total Contacts</p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900">{data.totalContacts.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-4 md:pt-6">
-            <div className="flex flex-col gap-2">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs md:text-sm font-medium text-gray-500">Event Registrations</p>
-                <p className="text-lg md:text-2xl font-bold text-gray-900">{data.totalEvents.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
