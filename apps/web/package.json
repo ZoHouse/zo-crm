@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.19",
+    "@livekit/components-styles": "^1.2.0",
     "@smart-crm/db": "workspace:*",
     "@smart-crm/types": "workspace:*",
     "@supabase/supabase-js": "^2.90.1",
@@ -17,6 +19,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.38.0",
+    "livekit-client": "^2.17.0",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

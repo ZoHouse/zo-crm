@@ -12,12 +12,14 @@ import {
   Upload,
   X,
   Sparkles,
+  Bot,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Sales Agent", href: "/agent", icon: Bot },
   { name: "Import", href: "/import", icon: Upload },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
