@@ -475,7 +475,7 @@ function RoomControls({ onEndCall }: { onEndCall: () => void }) {
     <div className="flex items-center justify-center gap-4">
       <Button
         onClick={toggleMute}
-        variant={isMuted ? "default" : "outline"}
+        variant={isMuted ? "danger" : "outline"}
         size="icon"
         className={cn(
           "w-12 h-12 rounded-full",
@@ -488,6 +488,7 @@ function RoomControls({ onEndCall }: { onEndCall: () => void }) {
       <Button
         onClick={onEndCall}
         size="lg"
+        variant="danger"
         className="bg-red-500 hover:bg-red-600 text-white rounded-full px-8 py-6 shadow-lg"
       >
         <PhoneOff className="w-5 h-5 mr-2" />
@@ -496,7 +497,7 @@ function RoomControls({ onEndCall }: { onEndCall: () => void }) {
       
       <Button
         onClick={toggleSpeaker}
-        variant={!isSpeakerOn ? "default" : "outline"}
+        variant={!isSpeakerOn ? "danger" : "outline"}
         size="icon"
         className={cn(
           "w-12 h-12 rounded-full",
