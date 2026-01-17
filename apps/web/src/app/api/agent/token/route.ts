@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { AccessToken } from "livekit-server-sdk";
 
 export const dynamic = "force-dynamic";
 
@@ -33,23 +34,28 @@ export async function POST() {
     const roomName = `crm-agent-${Date.now()}`;
     const participantIdentity = `user-${Date.now()}`;
 
-    // TODO: Generate actual LiveKit token using livekit-server-sdk
-    // For now, return a placeholder response
-    // When implementing:
-    // import { AccessToken } from 'livekit-server-sdk';
-    // const at = new AccessToken(livekitApiKey, livekitApiSecret, {
-    //   identity: participantIdentity,
-    // });
-    // at.addGrant({ room: roomName, roomJoin: true, canPublish: true, canSubscribe: true });
-    // const token = at.toJwt();
+    // Generate LiveKit access token
+    const at = new AccessToken(livekitApiKey, livekitApiSecret, {
+      identity: participantIdentity,
+      ttl: "1h", // Token valid for 1 hour
+    });
+    
+    at.addGrant({ 
+      room: roomName, 
+      roomJoin: true, 
+      canPublish: true, 
+      canPublishData: true,
+      canSubscribe: true,
+    });
+    
+    const token = await at.toJwt();
 
     return NextResponse.json({
       success: true,
+      token,
       roomName,
       participantIdentity,
       livekitUrl,
-      // token, // Uncomment when implementing
-      message: "LiveKit integration ready. Deploy agent worker to enable voice.",
     });
   } catch (error) {
     console.error("Token generation error:", error);

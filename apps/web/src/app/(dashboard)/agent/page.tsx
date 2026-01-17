@@ -2,6 +2,16 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
+  LiveKitRoom,
+  useRoomContext,
+  useLocalParticipant,
+  useRemoteParticipants,
+  useTracks,
+  AudioTrack,
+} from "@livekit/components-react";
+import "@livekit/components-styles";
+import { Track, RoomEvent } from "livekit-client";
+import {
   Mic,
   MicOff,
   Phone,
@@ -14,6 +24,7 @@ import {
   Sparkles,
   MessageSquare,
   Users,
+  AlertCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,14 +40,26 @@ interface Message {
   timestamp: Date;
 }
 
+interface TokenResponse {
+  success?: boolean;
+  token?: string;
+  roomName?: string;
+  livekitUrl?: string;
+  error?: string;
+  setup_url?: string;
+}
+
+// Main page component
 export default function SalesAgentPage() {
+  const [connectionState, setConnectionState] = useState<{
+    token: string | null;
+    roomName: string | null;
+    livekitUrl: string | null;
+  }>({ token: null, roomName: null, livekitUrl: null });
   const [status, setStatus] = useState<AgentStatus>("idle");
-  const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [contactCount, setContactCount] = useState<number>(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   // Fetch contact count for context display
   useEffect(() => {
@@ -46,39 +69,30 @@ export default function SalesAgentPage() {
       .catch(() => setContactCount(0));
   }, []);
 
-  // Auto-scroll messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   const startCall = useCallback(async () => {
     setStatus("connecting");
     setError(null);
     
     try {
-      // Get token from our API
       const response = await fetch("/api/agent/token", {
         method: "POST",
       });
       
-      if (!response.ok) {
-        const data = await response.json();
+      const data: TokenResponse = await response.json();
+      
+      if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to connect to agent");
       }
 
-      // For now, simulate connection since we need full LiveKit setup
-      setStatus("connected");
-      
-      // Add initial greeting
-      setMessages([{
-        id: "1",
-        role: "agent",
-        content: "Hello! I'm your AI sales assistant. I have access to your CRM with contact information. How can I help you today?",
-        timestamp: new Date(),
-      }]);
+      if (!data.token || !data.livekitUrl) {
+        throw new Error("Invalid token response");
+      }
 
-      // Simulate agent listening
-      setTimeout(() => setStatus("listening"), 1000);
+      setConnectionState({
+        token: data.token,
+        roomName: data.roomName || null,
+        livekitUrl: data.livekitUrl,
+      });
       
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed");
@@ -87,12 +101,99 @@ export default function SalesAgentPage() {
   }, []);
 
   const endCall = useCallback(() => {
+    setConnectionState({ token: null, roomName: null, livekitUrl: null });
     setStatus("idle");
     setMessages([]);
   }, []);
 
-  const toggleMute = () => setIsMuted(!isMuted);
-  const toggleSpeaker = () => setIsSpeakerOn(!isSpeakerOn);
+  const handleConnected = useCallback(() => {
+    setStatus("connected");
+    setMessages([{
+      id: "1",
+      role: "agent",
+      content: "Hello! I'm Aria, your AI sales assistant. I have access to your CRM with contact information. How can I help you today?",
+      timestamp: new Date(),
+    }]);
+  }, []);
+
+  const handleDisconnected = useCallback(() => {
+    setStatus("idle");
+    setConnectionState({ token: null, roomName: null, livekitUrl: null });
+  }, []);
+
+  const handleError = useCallback((err: Error) => {
+    console.error("LiveKit error:", err);
+    setError(err.message);
+    setStatus("error");
+  }, []);
+
+  // If we have a token, render the LiveKit room
+  if (connectionState.token && connectionState.livekitUrl) {
+    return (
+      <LiveKitRoom
+        token={connectionState.token}
+        serverUrl={connectionState.livekitUrl}
+        connect={true}
+        audio={true}
+        video={false}
+        onConnected={handleConnected}
+        onDisconnected={handleDisconnected}
+        onError={handleError}
+      >
+        <AgentInterface 
+          status={status}
+          setStatus={setStatus}
+          messages={messages}
+          setMessages={setMessages}
+          contactCount={contactCount}
+          error={error}
+          onEndCall={endCall}
+        />
+      </LiveKitRoom>
+    );
+  }
+
+  // Not connected - show start screen
+  return (
+    <AgentInterface 
+      status={status}
+      setStatus={setStatus}
+      messages={messages}
+      setMessages={setMessages}
+      contactCount={contactCount}
+      error={error}
+      onStartCall={startCall}
+      onEndCall={endCall}
+    />
+  );
+}
+
+// Agent Interface Component
+function AgentInterface({
+  status,
+  setStatus,
+  messages,
+  setMessages,
+  contactCount,
+  error,
+  onStartCall,
+  onEndCall,
+}: {
+  status: AgentStatus;
+  setStatus: (status: AgentStatus) => void;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  contactCount: number;
+  error: string | null;
+  onStartCall?: () => void;
+  onEndCall: () => void;
+}) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const statusConfig: Record<AgentStatus, { label: string; color: string; pulse?: boolean }> = {
     idle: { label: "Ready", color: "bg-gray-400" },
@@ -163,12 +264,11 @@ export default function SalesAgentPage() {
                       <div
                         key={i}
                         className={cn(
-                          "w-1 rounded-full transition-all",
+                          "w-1 rounded-full animate-pulse",
                           status === "speaking" ? "bg-blue-400" : "bg-green-400"
                         )}
                         style={{
-                          height: `${Math.random() * 20 + 10}px`,
-                          animation: `soundwave 0.5s ease-in-out infinite`,
+                          height: `${12 + (i % 3) * 8}px`,
                           animationDelay: `${i * 0.1}s`
                         }}
                       />
@@ -181,55 +281,27 @@ export default function SalesAgentPage() {
               </div>
 
               {/* Call Controls */}
-              <div className="relative mt-8 flex items-center justify-center gap-4">
+              <div className="relative mt-8">
                 {status === "idle" || status === "error" ? (
-                  <Button
-                    onClick={startCall}
-                    size="lg"
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-full px-8 py-6 shadow-lg"
-                  >
-                    <Phone className="w-5 h-5 mr-2" />
-                    Start Call
-                  </Button>
-                ) : (
-                  <>
+                  <div className="flex justify-center">
                     <Button
-                      onClick={toggleMute}
-                      variant={isMuted ? "default" : "outline"}
-                      size="icon"
-                      className={cn(
-                        "w-12 h-12 rounded-full",
-                        isMuted ? "bg-red-500 hover:bg-red-600 text-white" : "bg-white/10 hover:bg-white/20 text-white border-white/20"
-                      )}
-                    >
-                      {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </Button>
-                    
-                    <Button
-                      onClick={endCall}
+                      onClick={onStartCall}
                       size="lg"
-                      className="bg-red-500 hover:bg-red-600 text-white rounded-full px-8 py-6 shadow-lg"
+                      className="bg-green-500 hover:bg-green-600 text-white rounded-full px-8 py-6 shadow-lg"
                     >
-                      <PhoneOff className="w-5 h-5 mr-2" />
-                      End Call
+                      <Phone className="w-5 h-5 mr-2" />
+                      Start Call
                     </Button>
-                    
-                    <Button
-                      onClick={toggleSpeaker}
-                      variant={!isSpeakerOn ? "default" : "outline"}
-                      size="icon"
-                      className={cn(
-                        "w-12 h-12 rounded-full",
-                        !isSpeakerOn ? "bg-red-500 hover:bg-red-600 text-white" : "bg-white/10 hover:bg-white/20 text-white border-white/20"
-                      )}
-                    >
-                      {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                    </Button>
-                  </>
+                  </div>
+                ) : (
+                  <RoomControls onEndCall={onEndCall} />
                 )}
               </div>
             </div>
           </Card>
+
+          {/* Audio Tracks */}
+          {status !== "idle" && status !== "error" && <AudioRenderer />}
 
           {/* Conversation Transcript */}
           <Card>
@@ -345,30 +417,24 @@ export default function SalesAgentPage() {
             </CardContent>
           </Card>
 
-          {/* Setup Instructions */}
-          <Card className="border-amber-200 bg-amber-50">
+          {/* Agent Worker Notice */}
+          <Card className="border-blue-200 bg-blue-50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-amber-800">
-                <Settings2 className="w-4 h-4" />
-                Setup Required
+              <CardTitle className="text-base flex items-center gap-2 text-blue-800">
+                <AlertCircle className="w-4 h-4" />
+                Agent Worker Required
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-amber-700 space-y-2">
-              <p>To enable the voice agent, add these environment variables:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li><code className="bg-amber-100 px-1 rounded">LIVEKIT_URL</code></li>
-                <li><code className="bg-amber-100 px-1 rounded">LIVEKIT_API_KEY</code></li>
-                <li><code className="bg-amber-100 px-1 rounded">LIVEKIT_API_SECRET</code></li>
-                <li><code className="bg-amber-100 px-1 rounded">CEREBRAS_API_KEY</code></li>
-                <li><code className="bg-amber-100 px-1 rounded">CARTESIA_API_KEY</code></li>
-              </ul>
+            <CardContent className="text-sm text-blue-700 space-y-2">
+              <p>The voice agent needs a Python worker running with LiveKit Agents SDK.</p>
+              <p className="text-xs">This handles the AI processing with Cerebras LLM and Cartesia TTS/STT.</p>
               <a 
                 href="https://inference-docs.cerebras.ai/cookbook/agents/sales-agent-cerebras-livekit"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block mt-2 text-amber-600 hover:text-amber-800 underline"
+                className="inline-block mt-2 text-blue-600 hover:text-blue-800 underline"
               >
-                View Cerebras Cookbook →
+                View Setup Guide →
               </a>
             </CardContent>
           </Card>
@@ -383,14 +449,77 @@ export default function SalesAgentPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* CSS for sound wave animation */}
-      <style jsx>{`
-        @keyframes soundwave {
-          0%, 100% { height: 10px; }
-          50% { height: 30px; }
-        }
-      `}</style>
+// Room Controls Component (inside LiveKit context)
+function RoomControls({ onEndCall }: { onEndCall: () => void }) {
+  const { localParticipant } = useLocalParticipant();
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+
+  const toggleMute = useCallback(async () => {
+    if (localParticipant) {
+      await localParticipant.setMicrophoneEnabled(isMuted);
+      setIsMuted(!isMuted);
+    }
+  }, [localParticipant, isMuted]);
+
+  const toggleSpeaker = useCallback(() => {
+    setIsSpeakerOn(!isSpeakerOn);
+    // Note: Speaker control would need to be implemented via audio element volume
+  }, [isSpeakerOn]);
+
+  return (
+    <div className="flex items-center justify-center gap-4">
+      <Button
+        onClick={toggleMute}
+        variant={isMuted ? "default" : "outline"}
+        size="icon"
+        className={cn(
+          "w-12 h-12 rounded-full",
+          isMuted ? "bg-red-500 hover:bg-red-600 text-white" : "bg-white/10 hover:bg-white/20 text-white border-white/20"
+        )}
+      >
+        {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+      </Button>
+      
+      <Button
+        onClick={onEndCall}
+        size="lg"
+        className="bg-red-500 hover:bg-red-600 text-white rounded-full px-8 py-6 shadow-lg"
+      >
+        <PhoneOff className="w-5 h-5 mr-2" />
+        End Call
+      </Button>
+      
+      <Button
+        onClick={toggleSpeaker}
+        variant={!isSpeakerOn ? "default" : "outline"}
+        size="icon"
+        className={cn(
+          "w-12 h-12 rounded-full",
+          !isSpeakerOn ? "bg-red-500 hover:bg-red-600 text-white" : "bg-white/10 hover:bg-white/20 text-white border-white/20"
+        )}
+      >
+        {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+      </Button>
+    </div>
+  );
+}
+
+// Audio Renderer Component
+function AudioRenderer() {
+  const tracks = useTracks([Track.Source.Microphone, Track.Source.Unknown]);
+  
+  return (
+    <div className="hidden">
+      {tracks.map((track) => (
+        track.publication?.track && (
+          <AudioTrack key={track.participant.sid + track.source} trackRef={track} />
+        )
+      ))}
     </div>
   );
 }
