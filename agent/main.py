@@ -233,7 +233,7 @@ class SalesAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()  # Free tier: 200 hours
-        tts = openai.TTS()  # Using OpenAI TTS (cheap: $0.015/1K chars)
+        tts = silero.TTS()  # FREE open source TTS
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -443,7 +443,7 @@ class TechnicalAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = openai.TTS(voice="onyx")  # Male voice
+        tts = silero.TTS()  # FREE open source TTS
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -511,7 +511,7 @@ class PricingAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = openai.TTS(voice="nova")  # Friendly female voice
+        tts = silero.TTS()  # FREE open source TTS
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -622,16 +622,18 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
     # Validate environment
-    required = ["CEREBRAS_API_KEY", "DEEPGRAM_API_KEY", "OPENAI_API_KEY"]
+    required = ["CEREBRAS_API_KEY", "DEEPGRAM_API_KEY"]
     missing = [k for k in required if not os.environ.get(k)]
     
     if missing:
         print(f"❌ Missing: {', '.join(missing)}")
         print("\nRequired:")
         print("  LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
-        print("  CEREBRAS_API_KEY (LLM)")
-        print("  DEEPGRAM_API_KEY (STT - free tier available)")
-        print("  OPENAI_API_KEY (TTS)")
+        print("  CEREBRAS_API_KEY (LLM - free tier)")
+        print("  DEEPGRAM_API_KEY (STT - free tier)")
+        print("\nFREE stack - no payment required!")
+        print("  TTS: Silero (open source)")
+        print("  VAD: Silero (open source)")
         print("\nOptional:")
         print("  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
         exit(1)
