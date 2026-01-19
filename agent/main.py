@@ -15,6 +15,15 @@ from livekit import agents
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, function_tool
 from livekit.plugins import openai, silero, deepgram
 
+# Maya1 TTS - FREE open source with emotional voices
+try:
+    from maya_tts import MayaTTS, MayaVoice
+    MAYA_AVAILABLE = True
+    print("✅ Maya1 TTS available")
+except ImportError as e:
+    MAYA_AVAILABLE = False
+    print(f"⚠️ Maya1 TTS not available: {e}")
+
 # Optional: Supabase for CRM data
 try:
     from supabase import create_client, Client
@@ -234,7 +243,13 @@ class SalesAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()  # Free tier: 200 hours
-        tts = deepgram.TTS(model="aura-asteria-en")  # Deepgram Aura - female voice
+        
+        # Use Maya1 TTS (free, natural voices) if available
+        if MAYA_AVAILABLE:
+            tts = MayaTTS(voice_description=MayaVoice.ARIA)
+        else:
+            tts = deepgram.TTS(model="aura-asteria-en")  # Fallback
+        
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -444,7 +459,12 @@ class TechnicalAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = deepgram.TTS(model="aura-orion-en")  # Male voice
+        
+        if MAYA_AVAILABLE:
+            tts = MayaTTS(voice_description=MayaVoice.MALE_PROFESSIONAL)
+        else:
+            tts = deepgram.TTS(model="aura-orion-en")
+        
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -512,7 +532,12 @@ class PricingAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = deepgram.TTS(model="aura-luna-en")  # Friendly female voice
+        
+        if MAYA_AVAILABLE:
+            tts = MayaTTS(voice_description=MayaVoice.ARIA_EXCITED)
+        else:
+            tts = deepgram.TTS(model="aura-luna-en")
+        
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -631,7 +656,9 @@ if __name__ == "__main__":
         print("\nRequired:")
         print("  LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
         print("  CEREBRAS_API_KEY (LLM - free tier)")
-        print("  DEEPGRAM_API_KEY (STT + TTS - free tier!)")
+        print("  DEEPGRAM_API_KEY (STT - free tier)")
+        print("\n100% FREE TTS:")
+        print("  Maya1 - open source, emotional voices")
         print("\nOptional:")
         print("  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
         exit(1)

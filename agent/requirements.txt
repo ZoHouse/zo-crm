@@ -1,6 +1,12 @@
 # LiveKit Agents SDK
-# Using Deepgram STT (free tier) + OpenAI TTS (cheap) instead of Cartesia
 livekit-agents[deepgram,silero,openai]
+
+# Maya1 TTS - FREE open source with emotional voices
+transformers>=4.40.0
+torch>=2.0.0
+snac
+soundfile
+numpy
 
 # Supabase for CRM data
 supabase>=2.0.0
