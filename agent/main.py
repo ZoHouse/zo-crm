@@ -13,7 +13,7 @@ from datetime import datetime
 
 from livekit import agents
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, function_tool
-from livekit.plugins import openai, silero, cartesia
+from livekit.plugins import openai, silero, deepgram
 
 # Optional: Supabase for CRM data
 try:
@@ -232,8 +232,8 @@ class SalesAgent(Agent):
     
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
-        stt = cartesia.STT()
-        tts = cartesia.TTS()  # Default warm female voice
+        stt = deepgram.STT()  # Free tier: 200 hours
+        tts = openai.TTS()  # Using OpenAI TTS (cheap: $0.015/1K chars)
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -288,9 +288,8 @@ class SalesAgent(Agent):
     async def on_enter(self):
         """Greet user when they join."""
         print("Current Agent: 🏠 Aria (Zo House Sales) 🏠")
-        self.session.generate_reply(
-            user_input="Give a VERY short greeting - just 'Hey, I'm Aria from Zo House!' then ask ONE question: 'What brings you here today?' Nothing else. No explanation of what Zo House is. Just greet and ask."
-        )
+        # Direct greeting - not generated, just spoken exactly as written
+        await self.session.say("Hey, I'm Aria from Zo House! What brings you here today?")
     
     @function_tool
     async def search_contact(self, query: str, search_type: str = "name") -> str:
@@ -443,8 +442,8 @@ class TechnicalAgent(Agent):
     
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
-        stt = cartesia.STT()
-        tts = cartesia.TTS(voice="bf0a246a-8642-498a-9950-80c35e9276b5")  # Male voice
+        stt = deepgram.STT()
+        tts = openai.TTS(voice="onyx")  # Male voice
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -511,8 +510,8 @@ class PricingAgent(Agent):
     
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
-        stt = cartesia.STT()
-        tts = cartesia.TTS(voice="4df027cb-2920-4a1f-8c34-f21529d5c3fe")  # Friendly voice
+        stt = deepgram.STT()
+        tts = openai.TTS(voice="nova")  # Friendly female voice
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -623,14 +622,16 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
     # Validate environment
-    required = ["CEREBRAS_API_KEY", "CARTESIA_API_KEY"]
+    required = ["CEREBRAS_API_KEY", "DEEPGRAM_API_KEY", "OPENAI_API_KEY"]
     missing = [k for k in required if not os.environ.get(k)]
     
     if missing:
         print(f"❌ Missing: {', '.join(missing)}")
         print("\nRequired:")
         print("  LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
-        print("  CEREBRAS_API_KEY, CARTESIA_API_KEY")
+        print("  CEREBRAS_API_KEY (LLM)")
+        print("  DEEPGRAM_API_KEY (STT - free tier available)")
+        print("  OPENAI_API_KEY (TTS)")
         print("\nOptional:")
         print("  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
         exit(1)

@@ -1,5 +1,6 @@
-# LiveKit Agents SDK (matches Cerebras cookbook)
-livekit-agents[cartesia,silero,openai]
+# LiveKit Agents SDK
+# Using Deepgram STT (free tier) + OpenAI TTS (cheap) instead of Cartesia
+livekit-agents[deepgram,silero,openai]
 
 # Supabase for CRM data
 supabase>=2.0.0
