@@ -21,6 +21,7 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
+    Client = None  # Placeholder for type hint
     print("⚠️ Supabase not installed. Install with: pip install supabase")
 
 # Configure logging
@@ -32,7 +33,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("NEXT_PUBLIC_SUPABA
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_KEY"))
 
 # Initialize Supabase client
-supabase: Optional[Client] = None
+supabase = None
 if SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -233,7 +234,7 @@ class SalesAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()  # Free tier: 200 hours
-        tts = silero.TTS()  # FREE open source TTS
+        tts = deepgram.TTS(model="aura-asteria-en")  # Deepgram Aura - female voice
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -443,7 +444,7 @@ class TechnicalAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = silero.TTS()  # FREE open source TTS
+        tts = deepgram.TTS(model="aura-orion-en")  # Male voice
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -511,7 +512,7 @@ class PricingAgent(Agent):
     def __init__(self):
         llm = openai.LLM.with_cerebras(model="llama-3.3-70b")
         stt = deepgram.STT()
-        tts = silero.TTS()  # FREE open source TTS
+        tts = deepgram.TTS(model="aura-luna-en")  # Friendly female voice
         vad = silero.VAD.load()
         
         instructions = f"""
@@ -630,10 +631,7 @@ if __name__ == "__main__":
         print("\nRequired:")
         print("  LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET")
         print("  CEREBRAS_API_KEY (LLM - free tier)")
-        print("  DEEPGRAM_API_KEY (STT - free tier)")
-        print("\nFREE stack - no payment required!")
-        print("  TTS: Silero (open source)")
-        print("  VAD: Silero (open source)")
+        print("  DEEPGRAM_API_KEY (STT + TTS - free tier!)")
         print("\nOptional:")
         print("  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY")
         exit(1)
