@@ -111,7 +111,7 @@ export default function SalesAgentPage() {
     setMessages([{
       id: "1",
       role: "agent",
-      content: "Hello! I'm Aria, your AI sales assistant. I have access to your CRM with contact information. How can I help you today?",
+      content: "Hey! I'm Aria from Zo House - we're basically a clubhouse for human acceleration. So, what are you building?",
       timestamp: new Date(),
     }]);
   }, []);
@@ -215,11 +215,11 @@ function AgentInterface({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Bot className="w-6 h-6 md:w-7 md:h-7 text-blue-600" />
-            Sales Agent
+            <Bot className="w-6 h-6 md:w-7 md:h-7 text-purple-600" />
+            Zo House Sales Agent
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Voice-powered AI assistant with CRM knowledge
+            Talk to Aria about residency, events, and coworking
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ function AgentInterface({
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
-                    <p className="text-sm">Start a call to begin conversation</p>
+                    <p className="text-sm">Start a call to talk with Aria about Zo House</p>
                   </div>
                 ) : (
                   messages.map((msg) => (
@@ -371,26 +371,30 @@ function AgentInterface({
 
         {/* Sidebar Info */}
         <div className="space-y-4">
-          {/* Agent Info */}
+          {/* Zo House Info */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
-                Agent Capabilities
+                Aria Can Help With
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span>Voice conversation</span>
+                <span>Residency programs</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span>CRM contact lookup</span>
+                <span>Event space booking</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span>Meeting scheduling</span>
+                <span>Location recommendations</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="w-2 h-2 rounded-full bg-green-400" />
+                <span>Pricing and packages</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <div className="w-2 h-2 rounded-full bg-green-400" />
@@ -399,50 +403,44 @@ function AgentInterface({
             </CardContent>
           </Card>
 
-          {/* CRM Context */}
+          {/* Zo House Locations */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                CRM Context
+                Zo House Locations
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Contacts Loaded</span>
-                  <Badge variant="secondary">{contactCount.toLocaleString()}</Badge>
+                  <span className="text-sm text-gray-600">Koramangala</span>
+                  <Badge variant="secondary">Central</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Data Source</span>
-                  <Badge variant="secondary">Supabase</Badge>
+                  <span className="text-sm text-gray-600">Whitefield</span>
+                  <Badge variant="secondary">Premium</Badge>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
-                  Agent has access to contact names, emails, companies, and relationship stages.
+                  Ask Aria which location is best for your needs - events, residency, or workspace.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Agent Worker Notice */}
-          <Card className="border-blue-200 bg-blue-50">
+          {/* Products Quick Reference */}
+          <Card className="border-purple-200 bg-purple-50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-blue-800">
+              <CardTitle className="text-base flex items-center gap-2 text-purple-800">
                 <AlertCircle className="w-4 h-4" />
-                Agent Worker Required
+                Quick Pricing
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-blue-700 space-y-2">
-              <p>The voice agent needs a Python worker running with LiveKit Agents SDK.</p>
-              <p className="text-xs">This handles the AI processing with Cerebras LLM and Cartesia TTS/STT.</p>
-              <a 
-                href="https://inference-docs.cerebras.ai/cookbook/agents/sales-agent-cerebras-livekit"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-blue-600 hover:text-blue-800 underline"
-              >
-                View Setup Guide →
-              </a>
+            <CardContent className="text-sm text-purple-700 space-y-2">
+              <p><strong>Residency:</strong> ₹35-60k/month</p>
+              <p><strong>Short Stay:</strong> ₹5-7k/night</p>
+              <p><strong>Events:</strong> $60-120/hour</p>
+              <p className="text-xs text-purple-600 mt-2">Ask Aria for detailed pricing and packages!</p>
             </CardContent>
           </Card>
 
