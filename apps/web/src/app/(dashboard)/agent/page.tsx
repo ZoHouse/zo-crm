@@ -111,7 +111,7 @@ export default function SalesAgentPage() {
     setMessages([{
       id: "1",
       role: "agent",
-      content: "Hey! I'm Aria from Zo House - we're basically a clubhouse for human acceleration. So, what are you building?",
+      content: "Hey, I'm Aria from Zo House! What brings you here today?",
       timestamp: new Date(),
     }]);
   }, []);
