@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { 
   DndContext, 
   DragOverlay, 
@@ -35,6 +35,10 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  MoreVertical,
+  Pencil,
+  ExternalLink,
+  Phone,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Lead } from './page';
@@ -59,15 +63,83 @@ interface KanbanColumnProps {
   stage: typeof STAGES[number];
   leads: Lead[];
   onAddLead?: () => void;
+  onEditLead: (lead: Lead) => void;
+  onDeleteLead: (lead: Lead) => void;
 }
 
 interface KanbanCardProps {
   lead: Lead;
   isDragging?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+// Card Menu Component
+function CardMenu({ onEdit, onDelete, leadId }: { onEdit: () => void; onDelete: () => void; leadId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setIsOpen(!isOpen);
+        }}
+        className="p-1 hover:bg-gray-200 rounded transition-colors"
+      >
+        <MoreVertical className="w-4 h-4 text-gray-400" />
+      </button>
+      
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setIsOpen(false)} 
+          />
+          <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onEdit();
+                setIsOpen(false);
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit Lead
+            </button>
+            <Link
+              href={`/contacts/${leadId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              View Details
+            </Link>
+            <hr className="my-1 border-gray-100" />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDelete();
+                setIsOpen(false);
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Sortable Card Component
-function SortableCard({ lead }: { lead: Lead }) {
+function SortableCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
   const {
     attributes,
     listeners,
@@ -85,22 +157,22 @@ function SortableCard({ lead }: { lead: Lead }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <KanbanCard lead={lead} />
+      <KanbanCard lead={lead} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 }
 
 // Kanban Card Component
-function KanbanCard({ lead, isDragging }: KanbanCardProps) {
+function KanbanCard({ lead, isDragging, onEdit, onDelete }: KanbanCardProps) {
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || lead.email;
   const initials = lead.first_name && lead.last_name 
     ? `${lead.first_name[0]}${lead.last_name[0]}`.toUpperCase()
     : lead.email[0].toUpperCase();
 
   return (
-    <Card className={`p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''}`}>
+    <Card className={`p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group ${isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''}`}>
       <div className="space-y-2">
-        {/* Header with name and score */}
+        {/* Header with name, score, and menu */}
         <div className="flex items-start justify-between gap-2">
           <Link 
             href={`/contacts/${lead.id}`}
@@ -117,12 +189,19 @@ function KanbanCard({ lead, isDragging }: KanbanCardProps) {
               )}
             </div>
           </Link>
-          {lead.lead_score !== null && lead.lead_score > 0 && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-              <span className="text-xs font-medium text-gray-600">{lead.lead_score}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {lead.lead_score !== null && lead.lead_score > 0 && (
+              <div className="flex items-center gap-1 mr-1">
+                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                <span className="text-xs font-medium text-gray-600">{lead.lead_score}</span>
+              </div>
+            )}
+            {onEdit && onDelete && (
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <CardMenu onEdit={onEdit} onDelete={onDelete} leadId={lead.id} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Company */}
@@ -161,7 +240,7 @@ function KanbanCard({ lead, isDragging }: KanbanCardProps) {
 }
 
 // Droppable Column Component
-function KanbanColumn({ stage, leads, onAddLead }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads, onAddLead, onEditLead, onDeleteLead }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
   });
@@ -200,7 +279,12 @@ function KanbanColumn({ stage, leads, onAddLead }: KanbanColumnProps) {
           strategy={verticalListSortingStrategy}
         >
           {leads.map((lead) => (
-            <SortableCard key={lead.id} lead={lead} />
+            <SortableCard 
+              key={lead.id} 
+              lead={lead}
+              onEdit={() => onEditLead(lead)}
+              onDelete={() => onDeleteLead(lead)}
+            />
           ))}
         </SortableContext>
 
@@ -366,7 +450,278 @@ function AddLeadModal({ isOpen, onClose, stage, onLeadAdded }: AddLeadModalProps
   );
 }
 
-// Clear Confirmation Modal
+// Edit Lead Modal Component
+interface EditLeadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  lead: Lead | null;
+  onLeadUpdated: (lead: Lead) => void;
+}
+
+function EditLeadModal({ isOpen, onClose, lead, onLeadUpdated }: EditLeadModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    company: '',
+    job_title: '',
+    phone: '',
+    lead_score: 0,
+    relationship_stage: 'lead' as StageId,
+    notes: '',
+  });
+
+  // Update form when lead changes
+  useState(() => {
+    if (lead) {
+      setFormData({
+        first_name: lead.first_name || '',
+        last_name: lead.last_name || '',
+        email: lead.email || '',
+        company: lead.company || '',
+        job_title: lead.job_title || '',
+        phone: lead.phone || '',
+        lead_score: lead.lead_score || 0,
+        relationship_stage: (lead.relationship_stage || 'lead') as StageId,
+        notes: lead.notes || '',
+      });
+    }
+  });
+
+  // Reset form when lead changes
+  if (lead && formData.email !== lead.email) {
+    setFormData({
+      first_name: lead.first_name || '',
+      last_name: lead.last_name || '',
+      email: lead.email || '',
+      company: lead.company || '',
+      job_title: lead.job_title || '',
+      phone: lead.phone || '',
+      lead_score: lead.lead_score || 0,
+      relationship_stage: (lead.relationship_stage || 'lead') as StageId,
+      notes: lead.notes || '',
+    });
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead || !formData.email) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const { data } = await response.json();
+        onLeadUpdated(data);
+        onClose();
+      } else {
+        console.error('Failed to update lead');
+      }
+    } catch (error) {
+      console.error('Error updating lead:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen || !lead) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Edit Lead</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+              <input
+                type="text"
+                value={formData.first_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+              <input
+                type="text"
+                value={formData.last_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+              <input
+                type="text"
+                value={formData.company}
+                onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+              <input
+                type="text"
+                value={formData.job_title}
+                onChange={(e) => setFormData(prev => ({ ...prev, job_title: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+              <select
+                value={formData.relationship_stage}
+                onChange={(e) => setFormData(prev => ({ ...prev, relationship_stage: e.target.value as StageId }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {STAGES.map(stage => (
+                  <option key={stage.id} value={stage.id}>{stage.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lead Score (0-100)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={formData.lead_score}
+                onChange={(e) => setFormData(prev => ({ ...prev, lead_score: parseInt(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Add notes about this lead..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !formData.email} className="flex-1">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Delete Lead Confirmation Modal
+function DeleteLeadModal({ 
+  isOpen, 
+  onClose, 
+  lead,
+  onConfirm, 
+  isDeleting,
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  lead: Lead | null;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}) {
+  if (!isOpen || !lead) return null;
+
+  const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || lead.email;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Lead?</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Are you sure you want to delete <strong>{name}</strong>? This will also remove them from your contacts. This action cannot be undone.
+          </p>
+          <div className="flex gap-3 w-full">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              onClick={onConfirm} 
+              disabled={isDeleting}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Clear All Confirmation Modal
 function ClearConfirmModal({ 
   isOpen, 
   onClose, 
@@ -424,8 +779,15 @@ function ClearConfirmModal({
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
+  
+  // Modal states
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalStage, setAddModalStage] = useState<StageId>('lead');
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -450,6 +812,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
 
+  // Handlers
   const handleAddLead = (stageId: StageId) => {
     setAddModalStage(stageId);
     setAddModalOpen(true);
@@ -457,6 +820,40 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   const handleLeadAdded = (newLead: Lead) => {
     setLeads(prev => [newLead, ...prev]);
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setEditingLead(lead);
+    setEditModalOpen(true);
+  };
+
+  const handleLeadUpdated = (updatedLead: Lead) => {
+    setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+  };
+
+  const handleDeleteLead = (lead: Lead) => {
+    setDeletingLead(lead);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingLead) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/leads/${deletingLead.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        setLeads(prev => prev.filter(l => l.id !== deletingLead.id));
+        setDeleteModalOpen(false);
+        setDeletingLead(null);
+      } else {
+        console.error('Failed to delete lead');
+      }
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleClearAll = async () => {
@@ -476,26 +873,23 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     }
   };
 
+  // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    
     if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Find the active lead
     const activeLead = leads.find(l => l.id === activeId);
     if (!activeLead) return;
 
-    // Check if dropping on a column (stage)
     const overStage = STAGES.find(s => s.id === overId);
     if (overStage) {
-      // Update the lead's stage
       const currentStage = activeLead.relationship_stage || 'lead';
       if (currentStage !== overStage.id) {
         setLeads(prev => prev.map(lead => 
@@ -516,19 +910,15 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Find the lead being dragged
     const activeLead = leads.find(l => l.id === activeId);
     if (!activeLead) return;
 
-    // Determine the target stage
     let targetStage: StageId | null = null;
-
-    // Check if dropped on a stage column
     const overStage = STAGES.find(s => s.id === overId);
+    
     if (overStage) {
       targetStage = overStage.id;
     } else {
-      // Dropped on another card - find that card's stage
       const overLead = leads.find(l => l.id === overId);
       if (overLead) {
         targetStage = (overLead.relationship_stage || 'lead') as StageId;
@@ -536,14 +926,12 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     }
 
     if (targetStage && targetStage !== (activeLead.relationship_stage || 'lead')) {
-      // Update local state
       setLeads(prev => prev.map(lead => 
         lead.id === activeId 
           ? { ...lead, relationship_stage: targetStage, updated_at: new Date().toISOString() }
           : lead
       ));
 
-      // Update in database
       try {
         const response = await fetch(`/api/leads/${activeId}/stage`, {
           method: 'PATCH',
@@ -553,12 +941,10 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
         if (!response.ok) {
           console.error('Failed to update lead stage');
-          // Revert on error
           setLeads(initialLeads);
         }
       } catch (error) {
         console.error('Error updating lead stage:', error);
-        // Revert on error
         setLeads(initialLeads);
       }
     }
@@ -603,6 +989,8 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
               stage={stage}
               leads={leadsByStage[stage.id]}
               onAddLead={() => handleAddLead(stage.id)}
+              onEditLead={handleEditLead}
+              onDeleteLead={handleDeleteLead}
             />
           ))}
         </div>
@@ -616,11 +1004,33 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         </DragOverlay>
       </DndContext>
 
+      {/* Modals */}
       <AddLeadModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         stage={addModalStage}
         onLeadAdded={handleLeadAdded}
+      />
+
+      <EditLeadModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingLead(null);
+        }}
+        lead={editingLead}
+        onLeadUpdated={handleLeadUpdated}
+      />
+
+      <DeleteLeadModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeletingLead(null);
+        }}
+        lead={deletingLead}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
       />
 
       <ClearConfirmModal
