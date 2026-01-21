@@ -23,15 +23,16 @@ import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   User, 
   Building2, 
   Mail, 
-  Phone, 
-  MoreHorizontal,
   Plus,
   Star,
   Clock,
+  X,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Lead } from './page';
@@ -212,10 +213,163 @@ function KanbanColumn({ stage, leads, onAddLead }: KanbanColumnProps) {
   );
 }
 
+// Add Lead Modal Component
+interface AddLeadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  stage: StageId;
+  onLeadAdded: (lead: Lead) => void;
+}
+
+function AddLeadModal({ isOpen, onClose, stage, onLeadAdded }: AddLeadModalProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    company: '',
+    job_title: '',
+    phone: '',
+  });
+
+  const stageName = STAGES.find(s => s.id === stage)?.label || 'New Leads';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.email) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, stage }),
+      });
+
+      if (response.ok) {
+        const { data } = await response.json();
+        onLeadAdded(data);
+        setFormData({ first_name: '', last_name: '', email: '', company: '', job_title: '', phone: '' });
+        onClose();
+      } else {
+        console.error('Failed to create lead');
+      }
+    } catch (error) {
+      console.error('Error creating lead:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Add Lead to {stageName}</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+              <input
+                type="text"
+                value={formData.first_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="John"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+              <input
+                type="text"
+                value={formData.last_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Doe"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="john@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+            <input
+              type="text"
+              value={formData.company}
+              onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Acme Inc"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+            <input
+              type="text"
+              value={formData.job_title}
+              onChange={(e) => setFormData(prev => ({ ...prev, job_title: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Product Manager"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="+1 234 567 8900"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !formData.email} className="flex-1">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Lead'
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Main Kanban Board Component
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addModalStage, setAddModalStage] = useState<StageId>('lead');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -237,6 +391,15 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   }, {} as Record<StageId, Lead[]>);
 
   const activeLead = activeId ? leads.find(l => l.id === activeId) : null;
+
+  const handleAddLead = (stageId: StageId) => {
+    setAddModalStage(stageId);
+    setAddModalOpen(true);
+  };
+
+  const handleLeadAdded = (newLead: Lead) => {
+    setLeads(prev => [newLead, ...prev]);
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -327,30 +490,40 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex gap-4 overflow-x-auto pb-4 h-full">
-        {STAGES.map((stage) => (
-          <KanbanColumn
-            key={stage.id}
-            stage={stage}
-            leads={leadsByStage[stage.id]}
-          />
-        ))}
-      </div>
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4 h-full">
+          {STAGES.map((stage) => (
+            <KanbanColumn
+              key={stage.id}
+              stage={stage}
+              leads={leadsByStage[stage.id]}
+              onAddLead={() => handleAddLead(stage.id)}
+            />
+          ))}
+        </div>
 
-      <DragOverlay>
-        {activeLead ? (
-          <div className="w-[280px]">
-            <KanbanCard lead={activeLead} isDragging />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeLead ? (
+            <div className="w-[280px]">
+              <KanbanCard lead={activeLead} isDragging />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <AddLeadModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        stage={addModalStage}
+        onLeadAdded={handleLeadAdded}
+      />
+    </>
   );
 }
