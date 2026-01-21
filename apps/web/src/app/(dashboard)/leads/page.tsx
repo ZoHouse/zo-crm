@@ -53,15 +53,7 @@ export default async function LeadsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Lead Management</h1>
-        <p className="text-sm md:text-base text-gray-500">
-          Drag and drop leads between stages to update their status
-        </p>
-      </div>
-
-      {/* Kanban Board */}
+      {/* Kanban Board with integrated header */}
       <div className="flex-1 min-h-0">
         <KanbanBoard initialLeads={leads} />
       </div>

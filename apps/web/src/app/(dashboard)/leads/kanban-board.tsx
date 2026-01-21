@@ -33,6 +33,8 @@ import {
   Clock,
   X,
   Loader2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Lead } from './page';
@@ -364,12 +366,68 @@ function AddLeadModal({ isOpen, onClose, stage, onLeadAdded }: AddLeadModalProps
   );
 }
 
+// Clear Confirmation Modal
+function ClearConfirmModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  isClearing,
+  leadCount 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConfirm: () => void;
+  isClearing: boolean;
+  leadCount: number;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Clear All Leads?</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            This will permanently delete all {leadCount} leads. This action cannot be undone.
+          </p>
+          <div className="flex gap-3 w-full">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={isClearing}>
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              onClick={onConfirm} 
+              disabled={isClearing}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isClearing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                'Clear All'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main Kanban Board Component
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addModalStage, setAddModalStage] = useState<StageId>('lead');
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -399,6 +457,23 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   const handleLeadAdded = (newLead: Lead) => {
     setLeads(prev => [newLead, ...prev]);
+  };
+
+  const handleClearAll = async () => {
+    setIsClearing(true);
+    try {
+      const response = await fetch('/api/leads/clear', { method: 'DELETE' });
+      if (response.ok) {
+        setLeads([]);
+        setClearModalOpen(false);
+      } else {
+        console.error('Failed to clear leads');
+      }
+    } catch (error) {
+      console.error('Error clearing leads:', error);
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -491,6 +566,29 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   return (
     <>
+      {/* Header */}
+      <div className="flex-shrink-0 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Lead Management</h1>
+          <p className="text-sm md:text-base text-gray-500">
+            {leads.length > 0 
+              ? `${leads.length} total leads - Drag and drop to update status`
+              : 'No leads yet - Click + to add your first lead'}
+          </p>
+        </div>
+        {leads.length > 0 && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setClearModalOpen(true)}
+            className="text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All
+          </Button>
+        )}
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -523,6 +621,14 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         onClose={() => setAddModalOpen(false)}
         stage={addModalStage}
         onLeadAdded={handleLeadAdded}
+      />
+
+      <ClearConfirmModal
+        isOpen={clearModalOpen}
+        onClose={() => setClearModalOpen(false)}
+        onConfirm={handleClearAll}
+        isClearing={isClearing}
+        leadCount={leads.length}
       />
     </>
   );
